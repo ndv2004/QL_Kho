@@ -1,7 +1,7 @@
 {
-  "name": "inventory-sales-dashboard",
+  "name": "ql-kho-banhang",
   "version": "1.0.0",
-  "description": "Simple modern inventory and sales dashboard for small businesses",
+  "description": "Modern inventory and sales dashboard for small businesses",
   "main": "server.js",
   "scripts": {
     "start": "node server.js",

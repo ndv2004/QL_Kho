@@ -1,39 +1,20 @@
-# Inventory & Sales Dashboard
+# QL Kho / Bán hàng
 
-## Chạy dự án
+## Chạy nhanh
+1. `npm install`
+2. Tạo `.env` từ `.env.example`
+3. `npm run seed`
+4. `npm start`
 
-1. Cài đặt:
-```bash
-npm install
-```
+## Tài khoản mẫu
+- `takhanhly / 22092006`
+- `admin / admin123`
 
-2. Tạo file `.env` từ `.env.example` và điền `DATABASE_URL` của Neon PostgreSQL.
+## Dữ liệu seed
+- Toàn bộ sản phẩm được lấy từ file `Bảng báo giá(1).xlsx`
+- Nhà cung ứng: `Tạ Khánh Ly`
+- Ngày nhập khởi tạo: `31/03/2026`
 
-3. Tạo bảng và dữ liệu mẫu nếu cần:
-```bash
-npm run seed
-```
-
-4. Khởi động:
-```bash
-node server.js
-```
-
-Mở:
-```text
-http://localhost:3000
-```
-
-## Tài khoản quản lý mẫu
-
-- Username: `admin`
-- Password: `admin123`
-
-## Ghi chú
-
-- Ứng dụng tự tạo bảng nếu chưa có.
-- Dữ liệu mẫu được tách sang `seed.js`, không tự seed khi server khởi động.
-- Người thường có thể xem và tìm kiếm sản phẩm mà không cần đăng nhập.
-- Bản này tối ưu tốt hơn cho điện thoại: sidebar gọn, nút dễ bấm, form thoáng, bảng tự chuyển sang card trên mobile, và chi tiết hóa đơn có chế độ xem riêng cho màn hình nhỏ.
-- Có thể sửa phiếu nhập kho, sửa hóa đơn, và cập nhật thanh toán ngay trong giao diện quản lý.
-- Phần báo cáo có xuất PDF cho báo cáo tháng và báo cáo tổng quan kho/doanh thu.
+## Lưu ý
+- Mã sản phẩm trong bảng báo giá có một số mã trùng giữa các dòng khác nhau, nên cơ sở dữ liệu đã được thiết kế để **không ép unique** lên `products.code`.
+- Seed sẽ xóa sạch dữ liệu hiện có rồi nạp lại theo workbook.

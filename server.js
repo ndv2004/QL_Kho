@@ -9,12 +9,12 @@ const PDFDocument = require('pdfkit');
 const path = require('path');
 
 const app = express();
-const PORT = process.env.PORT || 3000;
-const SESSION_SECRET = process.env.SESSION_SECRET || 'inventory_sales_secret';
+const PORT = Number(process.env.PORT || 3000);
 const DATABASE_URL = process.env.DATABASE_URL;
+const SESSION_SECRET = process.env.SESSION_SECRET || 'inventory_sales_secret';
 
 if (!DATABASE_URL) {
-  console.warn('Missing DATABASE_URL. Please set it in .env to connect to Neon PostgreSQL.');
+  console.warn('Missing DATABASE_URL. Please set it in .env.');
 }
 
 const pool = new Pool({
@@ -22,130 +22,103 @@ const pool = new Pool({
   ssl: DATABASE_URL ? { rejectUnauthorized: false } : undefined,
 });
 
-app.use(express.json({ limit: '2mb' }));
+app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 app.use(
   session({
     secret: SESSION_SECRET,
     resave: false,
     saveUninitialized: false,
-    cookie: { httpOnly: true, sameSite: 'lax' },
+    cookie: {
+      httpOnly: true,
+      sameSite: 'lax',
+      secure: false,
+    },
   })
 );
+
 app.use(express.static(path.join(__dirname, 'public')));
 
-const ADMIN_PASSWORD = 'admin123';
-const ADMIN_HASH = bcrypt.hashSync(ADMIN_PASSWORD, 10);
-
-function toFloat(v) {
-  return Number.parseFloat(v ?? 0) || 0;
+function n(value, fallback = 0) {
+  const x = Number(value);
+  return Number.isFinite(x) ? x : fallback;
 }
 
-function toInt(v) {
-  return Number.parseInt(v ?? 0, 10) || 0;
+function i(value, fallback = 0) {
+  const x = parseInt(value, 10);
+  return Number.isFinite(x) ? x : fallback;
 }
 
-function pad2(n) {
-  return String(n).padStart(2, '0');
+function text(value, fallback = '') {
+  return String(value ?? fallback).trim();
 }
 
-function monthBounds(month, year) {
-  const m = toInt(month);
-  const y = toInt(year);
-  const start = new Date(Date.UTC(y, m - 1, 1, 0, 0, 0));
-  const end = new Date(Date.UTC(y, m, 1, 0, 0, 0));
-  return { start, end };
+function money(value) {
+  return new Intl.NumberFormat('vi-VN').format(Math.round(n(value)));
+}
+
+function pad2(num) {
+  return String(num).padStart(2, '0');
+}
+
+function monthKeyFromDate(dt) {
+  const d = new Date(dt);
+  return `${d.getUTCFullYear()}-${pad2(d.getUTCMonth() + 1)}`;
+}
+
+function monthRange(month, year) {
+  const m = i(month);
+  const y = i(year);
+  if (!m || !y) throw new Error('Tháng/năm không hợp lệ.');
+  const start = `${y}-${pad2(m)}-01`;
+  const next = m === 12 ? `${y + 1}-01-01` : `${y}-${pad2(m + 1)}-01`;
+  return { start, end: next, month: m, year: y };
 }
 
 function monthLabel(month, year) {
   return `${pad2(month)}/${year}`;
 }
 
-function formatVnd(value) {
-  return new Intl.NumberFormat('vi-VN', {
-    style: 'currency',
-    currency: 'VND',
-    maximumFractionDigits: 0,
-  }).format(toFloat(value));
+function code(prefix) {
+  return `${prefix}-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
 }
 
-function normalizeImportItems(items) {
-  return (Array.isArray(items) ? items : [])
-    .map((i) => ({
-      product_id: toInt(i.product_id),
-      quantity: toInt(i.quantity),
-    }))
-    .filter((i) => i.product_id && i.quantity > 0);
-}
-
-function normalizeOrderItems(items) {
-  return (Array.isArray(items) ? items : [])
-    .map((i) => ({
-      product_id: toInt(i.product_id),
-      quantity: toInt(i.quantity),
-      unit_price: toFloat(i.unit_price),
-    }))
-    .filter((i) => i.product_id && i.quantity > 0);
-}
-
-async function resolveOrderCustomer(client, customer_id, customer_name, customer_phone, customer_address) {
-  const cleanedName = String(customer_name || '').trim();
-  const cleanedPhone = String(customer_phone || '').trim();
-  const cleanedAddress = String(customer_address || '').trim();
-
-  const resolvedCustomerId = customer_id ? toInt(customer_id) : null;
-  if (resolvedCustomerId) {
-    const c = await client.query('SELECT id FROM customers WHERE id = $1', [resolvedCustomerId]);
-    if (!c.rowCount) throw new Error('Khách hàng không tồn tại.');
-    return {
-      customer_id: resolvedCustomerId,
-      customer_name: cleanedName || 'Khách lẻ',
-      customer_phone: cleanedPhone,
-      customer_address: cleanedAddress,
-    };
+function mergeItems(items) {
+  const map = new Map();
+  for (const raw of Array.isArray(items) ? items : []) {
+    const product_id = i(raw.product_id);
+    const quantity = i(raw.quantity);
+    if (!product_id || quantity <= 0) continue;
+    const unit_price = raw.unit_price === undefined || raw.unit_price === null ? null : n(raw.unit_price);
+    const existing = map.get(product_id) || { product_id, quantity: 0, unit_price: unit_price ?? 0 };
+    existing.quantity += quantity;
+    if (unit_price !== null) existing.unit_price = unit_price;
+    map.set(product_id, existing);
   }
-
-  if (!cleanedName) {
-    return {
-      customer_id: null,
-      customer_name: 'Khách lẻ',
-      customer_phone: cleanedPhone,
-      customer_address: cleanedAddress,
-    };
-  }
-
-  const found = cleanedPhone
-    ? await client.query('SELECT id FROM customers WHERE phone = $1 AND name = $2 LIMIT 1', [cleanedPhone, cleanedName])
-    : null;
-
-  if (found && found.rowCount) {
-    return {
-      customer_id: found.rows[0].id,
-      customer_name: cleanedName,
-      customer_phone: cleanedPhone,
-      customer_address: cleanedAddress,
-    };
-  }
-
-  const created = await client.query(
-    `INSERT INTO customers (name, phone, address, is_walk_in) VALUES ($1, $2, $3, $4) RETURNING id`,
-    [cleanedName, cleanedPhone || '', cleanedAddress || '', true]
-  );
-
-  return {
-    customer_id: created.rows[0].id,
-    customer_name: cleanedName,
-    customer_phone: cleanedPhone,
-    customer_address: cleanedAddress,
-  };
+  return [...map.values()];
 }
 
-function escapePdfText(value) {
-  return String(value ?? '').replace(/\r?\n/g, ' ').replace(/\s+/g, ' ').trim();
+function parseDateValue(value) {
+  const v = text(value);
+  if (!v) return new Date();
+  const date = new Date(v);
+  if (Number.isNaN(date.getTime())) throw new Error('Ngày không hợp lệ.');
+  return date;
 }
 
-async function query(text, params) {
-  return pool.query(text, params);
+function isManagerSession(req) {
+  return Boolean(req.session && req.session.user && req.session.user.role === 'manager');
+}
+
+function requireAuth(req, res, next) {
+  if (!req.session.user) {
+    return res.status(401).json({ success: false, message: 'Cần đăng nhập quản lý.' });
+  }
+  next();
+}
+
+async function q(sql, params = []) {
+  return pool.query(sql, params);
 }
 
 async function withTx(fn) {
@@ -156,87 +129,82 @@ async function withTx(fn) {
     await client.query('COMMIT');
     return result;
   } catch (error) {
-    try {
-      await client.query('ROLLBACK');
-    } catch {}
+    try { await client.query('ROLLBACK'); } catch {}
     throw error;
   } finally {
     client.release();
   }
 }
 
-function createSlugCode(prefix) {
-  return `${prefix}${Date.now().toString().slice(-6)}${Math.floor(Math.random() * 900 + 100)}`;
-}
-
-function authRequired(req, res, next) {
-  if (!req.session.user) {
-    return res.status(401).json({ success: false, message: 'Cần đăng nhập quản lý.' });
-  }
-  next();
-}
-
-function publicProductRow(row) {
-  return {
-    id: row.id,
-    code: row.code,
-    name: row.name,
-    sale_price: toFloat(row.sale_price),
-    current_stock: toInt(row.current_stock),
-    supplier_id: row.supplier_id,
-    supplier_name: row.supplier_name || '',
-    created_at: row.created_at,
-    updated_at: row.updated_at,
-  };
+async function logAction(client, payload) {
+  const {
+    action,
+    entity_type,
+    entity_id,
+    old_data = null,
+    new_data = null,
+    actor_id = null,
+  } = payload;
+  await client.query(
+    `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+     VALUES ($1,$2,$3,$4,$5,$6)`,
+    [action, entity_type, entity_id, old_data, new_data, actor_id]
+  );
 }
 
 async function ensureSchema() {
-  await query(`
+  await q(`
     CREATE TABLE IF NOT EXISTS users (
       id SERIAL PRIMARY KEY,
-      username VARCHAR(50) UNIQUE NOT NULL,
+      username VARCHAR(60) UNIQUE NOT NULL,
       password_hash TEXT NOT NULL,
-      full_name VARCHAR(120) NOT NULL,
-      role VARCHAR(20) NOT NULL DEFAULT 'manager',
+      full_name VARCHAR(120) NOT NULL DEFAULT '',
+      role VARCHAR(30) NOT NULL DEFAULT 'manager',
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS suppliers (
       id SERIAL PRIMARY KEY,
-      name VARCHAR(150) NOT NULL,
-      phone VARCHAR(50),
+      name VARCHAR(180) NOT NULL,
+      phone VARCHAR(60),
       address TEXT,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS customers (
       id SERIAL PRIMARY KEY,
-      name VARCHAR(150) NOT NULL,
-      phone VARCHAR(50),
+      name VARCHAR(180) NOT NULL,
+      phone VARCHAR(60),
       address TEXT,
       is_walk_in BOOLEAN NOT NULL DEFAULT FALSE,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
-      code VARCHAR(80) UNIQUE NOT NULL,
-      name VARCHAR(200) NOT NULL,
-      sale_price NUMERIC(12,2) NOT NULL DEFAULT 0,
+      code VARCHAR(120) NOT NULL,
+      name VARCHAR(255) NOT NULL,
+      category VARCHAR(120) NOT NULL DEFAULT '',
+      unit VARCHAR(50) NOT NULL DEFAULT '',
+      specification VARCHAR(120) NOT NULL DEFAULT '',
+      sale_price NUMERIC(14,2) NOT NULL DEFAULT 0,
       current_stock INTEGER NOT NULL DEFAULT 0,
       supplier_id INTEGER REFERENCES suppliers(id) ON DELETE SET NULL,
+      is_frequent BOOLEAN NOT NULL DEFAULT FALSE,
       created_at TIMESTAMP NOT NULL DEFAULT NOW(),
       updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS imports (
       id SERIAL PRIMARY KEY,
-      import_code VARCHAR(80) UNIQUE NOT NULL,
+      import_code VARCHAR(120) UNIQUE NOT NULL,
       supplier_id INTEGER NOT NULL REFERENCES suppliers(id) ON DELETE RESTRICT,
       imported_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      total_quantity INTEGER NOT NULL DEFAULT 0,
       note TEXT,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS import_items (
@@ -249,197 +217,907 @@ async function ensureSchema() {
 
     CREATE TABLE IF NOT EXISTS orders (
       id SERIAL PRIMARY KEY,
-      order_code VARCHAR(80) UNIQUE NOT NULL,
+      order_code VARCHAR(120) UNIQUE NOT NULL,
       customer_id INTEGER REFERENCES customers(id) ON DELETE SET NULL,
-      customer_name VARCHAR(150) NOT NULL,
-      customer_phone VARCHAR(50),
+      customer_name VARCHAR(180) NOT NULL DEFAULT '',
+      customer_phone VARCHAR(60),
       customer_address TEXT,
-      total_amount NUMERIC(12,2) NOT NULL DEFAULT 0,
+      total_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
       is_paid BOOLEAN NOT NULL DEFAULT FALSE,
       created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
-      created_at TIMESTAMP NOT NULL DEFAULT NOW()
+      created_at TIMESTAMP NOT NULL DEFAULT NOW(),
+      updated_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
     CREATE TABLE IF NOT EXISTS order_items (
       id SERIAL PRIMARY KEY,
       order_id INTEGER NOT NULL REFERENCES orders(id) ON DELETE CASCADE,
       product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-      product_name_snapshot VARCHAR(200) NOT NULL,
+      product_name_snapshot VARCHAR(255) NOT NULL,
       quantity INTEGER NOT NULL CHECK (quantity > 0),
-      unit_price NUMERIC(12,2) NOT NULL DEFAULT 0,
-      line_total NUMERIC(12,2) NOT NULL DEFAULT 0,
+      unit_price NUMERIC(14,2) NOT NULL DEFAULT 0,
+      line_total NUMERIC(14,2) NOT NULL DEFAULT 0,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
 
-    CREATE TABLE IF NOT EXISTS stock_movements (
+    CREATE TABLE IF NOT EXISTS audit_logs (
       id SERIAL PRIMARY KEY,
-      product_id INTEGER NOT NULL REFERENCES products(id) ON DELETE RESTRICT,
-      quantity_delta INTEGER NOT NULL,
-      ref_type VARCHAR(30) NOT NULL,
-      ref_id INTEGER,
-      note TEXT,
+      action VARCHAR(30) NOT NULL,
+      entity_type VARCHAR(60) NOT NULL,
+      entity_id INTEGER,
+      old_data JSONB,
+      new_data JSONB,
+      actor_id INTEGER REFERENCES users(id) ON DELETE SET NULL,
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
-
-    CREATE INDEX IF NOT EXISTS idx_products_code ON products(code);
-    CREATE INDEX IF NOT EXISTS idx_products_name ON products(name);
-    CREATE INDEX IF NOT EXISTS idx_orders_created_at ON orders(created_at);
-    CREATE INDEX IF NOT EXISTS idx_imports_created_at ON imports(created_at);
-    CREATE INDEX IF NOT EXISTS idx_stock_movements_created_at ON stock_movements(created_at);
   `);
+
+  await q(`ALTER TABLE products DROP CONSTRAINT IF EXISTS products_code_key`);
+
+  await q(`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW()`);
+  await q(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_walk_in BOOLEAN NOT NULL DEFAULT FALSE`);
+  await q(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW()`);
+  await q(`ALTER TABLE products ADD COLUMN IF NOT EXISTS category VARCHAR(120) NOT NULL DEFAULT ''`);
+  await q(`ALTER TABLE products ADD COLUMN IF NOT EXISTS unit VARCHAR(50) NOT NULL DEFAULT ''`);
+  await q(`ALTER TABLE products ADD COLUMN IF NOT EXISTS specification VARCHAR(120) NOT NULL DEFAULT ''`);
+  await q(`ALTER TABLE products ADD COLUMN IF NOT EXISTS sale_price NUMERIC(14,2) NOT NULL DEFAULT 0`);
+  await q(`ALTER TABLE products ADD COLUMN IF NOT EXISTS current_stock INTEGER NOT NULL DEFAULT 0`);
+  await q(`ALTER TABLE products ADD COLUMN IF NOT EXISTS is_frequent BOOLEAN NOT NULL DEFAULT FALSE`);
+  await q(`ALTER TABLE products ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW()`);
+  await q(`ALTER TABLE imports ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW()`);
+  await q(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW()`);
+  await q(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS customer_name VARCHAR(180) NOT NULL DEFAULT ''`);
+  await q(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS total_amount NUMERIC(14,2) NOT NULL DEFAULT 0`);
+  await q(`ALTER TABLE orders ADD COLUMN IF NOT EXISTS is_paid BOOLEAN NOT NULL DEFAULT FALSE`);
 }
 
-async function addStockMovement(client, { product_id, quantity_delta, ref_type, ref_id = null, note = null }) {
-  await client.query(
-    `INSERT INTO stock_movements (product_id, quantity_delta, ref_type, ref_id, note)
-     VALUES ($1, $2, $3, $4, $5)`,
-    [product_id, quantity_delta, ref_type, ref_id, note]
-  );
+function rowProduct(row) {
+  return {
+    id: row.id,
+    code: row.code,
+    name: row.name,
+    category: row.category || '',
+    unit: row.unit || '',
+    specification: row.specification || '',
+    sale_price: n(row.sale_price),
+    current_stock: i(row.current_stock),
+    supplier_id: row.supplier_id,
+    supplier_name: row.supplier_name || '',
+    is_frequent: Boolean(row.is_frequent),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
 }
 
-async function seedData() {
-  const countRes = await query('SELECT COUNT(*)::int AS c FROM products');
-  if (countRes.rows[0].c > 0) return;
+function rowSupplier(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone || '',
+    address: row.address || '',
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
 
-  let adminUser = await query('SELECT id FROM users WHERE username = $1 LIMIT 1', ['admin']);
-  if (adminUser.rowCount === 0) {
-    await query(
-      `INSERT INTO users (username, password_hash, full_name, role)
-       VALUES ($1, $2, $3, 'manager')`,
-      ['admin', ADMIN_HASH, 'Quản lý']
-    );
-    adminUser = await query('SELECT id FROM users WHERE username = $1 LIMIT 1', ['admin']);
+function rowCustomer(row) {
+  return {
+    id: row.id,
+    name: row.name,
+    phone: row.phone || '',
+    address: row.address || '',
+    is_walk_in: Boolean(row.is_walk_in),
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+  };
+}
+
+function rowImport(row) {
+  return {
+    id: row.id,
+    import_code: row.import_code,
+    supplier_id: row.supplier_id,
+    supplier_name: row.supplier_name || '',
+    imported_by: row.imported_by,
+    imported_by_name: row.imported_by_name || '',
+    note: row.note || '',
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    items: [],
+  };
+}
+
+function rowOrder(row) {
+  return {
+    id: row.id,
+    order_code: row.order_code,
+    customer_id: row.customer_id,
+    customer_name: row.customer_name || '',
+    customer_phone: row.customer_phone || '',
+    customer_address: row.customer_address || '',
+    total_amount: n(row.total_amount),
+    is_paid: Boolean(row.is_paid),
+    created_by: row.created_by,
+    created_by_name: row.created_by_name || '',
+    created_at: row.created_at,
+    updated_at: row.updated_at,
+    items: [],
+  };
+}
+
+function rowLog(row) {
+  return {
+    id: row.id,
+    action: row.action,
+    entity_type: row.entity_type,
+    entity_id: row.entity_id,
+    old_data: row.old_data,
+    new_data: row.new_data,
+    actor_id: row.actor_id,
+    actor_name: row.actor_name || '',
+    created_at: row.created_at,
+  };
+}
+
+async function getProducts(filters = {}) {
+  const where = [];
+  const params = [];
+  if (filters.search) {
+    params.push(`%${filters.search}%`);
+    where.push(`(p.code ILIKE $${params.length} OR p.name ILIKE $${params.length} OR p.category ILIKE $${params.length})`);
   }
+  if (filters.category && filters.category !== 'all') {
+    params.push(filters.category);
+    where.push(`p.category = $${params.length}`);
+  }
+  if (filters.frequent === 'true') where.push('p.is_frequent = TRUE');
+  if (filters.frequent === 'false') where.push('p.is_frequent = FALSE');
+  if (filters.supplier_id) {
+    params.push(i(filters.supplier_id));
+    where.push(`p.supplier_id = $${params.length}`);
+  }
+  const limit = filters.limit ? Math.max(1, i(filters.limit, 0)) : null;
+  if (limit) {
+    params.push(limit);
+  }
+  const sql = `
+    SELECT p.*, COALESCE(s.name, '') AS supplier_name
+    FROM products p
+    LEFT JOIN suppliers s ON s.id = p.supplier_id
+    ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+    ORDER BY p.is_frequent DESC, p.category ASC, p.name ASC
+    ${limit ? `LIMIT $${params.length}` : ''}
+  `;
+  const { rows } = await q(sql, params);
+  return rows.map(rowProduct);
+}
 
-  const supplierRows = await Promise.all([
-    query(`INSERT INTO suppliers (name, phone, address) VALUES ($1, $2, $3) RETURNING id`, ['Công ty Minh Phát', '0901234567', 'Hà Nội']),
-    query(`INSERT INTO suppliers (name, phone, address) VALUES ($1, $2, $3) RETURNING id`, ['ABC Trading', '0912345678', 'TP. Hồ Chí Minh']),
-    query(`INSERT INTO suppliers (name, phone, address) VALUES ($1, $2, $3) RETURNING id`, ['Sakura Supply', '0923456789', 'Đà Nẵng']),
+async function getSuppliers() {
+  const { rows } = await q(`SELECT * FROM suppliers ORDER BY name ASC`);
+  return rows.map(rowSupplier);
+}
+
+async function getCustomers() {
+  const { rows } = await q(`SELECT * FROM customers ORDER BY created_at DESC, name ASC`);
+  return rows.map(rowCustomer);
+}
+
+async function getDashboardData() {
+  const [{ rows: counts }, { rows: series }, { rows: lowStock }, { rows: logs }, { rows: recentOrders }, { rows: recentImports }] = await Promise.all([
+    q(`
+      SELECT
+        (SELECT COUNT(*) FROM products)::int AS products,
+        (SELECT COUNT(*) FROM suppliers)::int AS suppliers,
+        (SELECT COUNT(*) FROM customers)::int AS customers,
+        (SELECT COUNT(*) FROM imports)::int AS imports,
+        (SELECT COUNT(*) FROM orders)::int AS orders,
+        (SELECT COUNT(*) FROM orders WHERE is_paid = TRUE)::int AS paid_orders,
+        (SELECT COUNT(*) FROM orders WHERE is_paid = FALSE)::int AS unpaid_orders,
+        (SELECT COALESCE(SUM(current_stock),0)::int FROM products) AS stock_total,
+        (SELECT COALESCE(SUM(total_amount),0) FROM orders)::numeric AS revenue_total
+    `),
+    q(`
+      SELECT
+        to_char(date_trunc('month', created_at), 'YYYY-MM') AS ym,
+        COUNT(*)::int AS orders,
+        COALESCE(SUM(total_amount),0)::numeric AS revenue
+      FROM orders
+      WHERE created_at >= (date_trunc('month', CURRENT_DATE) - INTERVAL '5 months')
+      GROUP BY 1
+      ORDER BY 1
+    `),
+    q(`
+      SELECT id, code, name, category, unit, specification, current_stock, sale_price
+      FROM products
+      WHERE current_stock <= 10
+      ORDER BY current_stock ASC, name ASC
+      LIMIT 10
+    `),
+    q(`
+      SELECT l.*, u.full_name AS actor_name
+      FROM audit_logs l
+      LEFT JOIN users u ON u.id = l.actor_id
+      ORDER BY l.created_at DESC
+      LIMIT 12
+    `),
+    q(`
+      SELECT id, order_code, customer_name, total_amount, is_paid, created_at
+      FROM orders
+      ORDER BY created_at DESC
+      LIMIT 6
+    `),
+    q(`
+      SELECT i.id, i.import_code, i.created_at, s.name AS supplier_name
+      FROM imports i
+      LEFT JOIN suppliers s ON s.id = i.supplier_id
+      ORDER BY i.created_at DESC
+      LIMIT 6
+    `),
   ]);
-  const supplierIds = supplierRows.map((r) => r.rows[0].id);
 
-  const customerRows = await Promise.all([
-    query(`INSERT INTO customers (name, phone, address, is_walk_in) VALUES ($1, $2, $3, $4) RETURNING id`, ['Nguyễn Văn An', '0981111111', 'Hà Nội', false]),
-    query(`INSERT INTO customers (name, phone, address, is_walk_in) VALUES ($1, $2, $3, $4) RETURNING id`, ['Trần Thị Bình', '0982222222', 'Hải Phòng', false]),
-    query(`INSERT INTO customers (name, phone, address, is_walk_in) VALUES ($1, $2, $3, $4) RETURNING id`, ['Khách lẻ', '', '', true]),
-  ]);
-  const customerId = customerRows[0].rows[0].id;
-
-  const productSeeds = [
-    { code: 'SP-001', name: 'Sữa rửa mặt dịu nhẹ', sale_price: 89000, stock: 120, supplier_id: supplierIds[0] },
-    { code: 'SP-002', name: 'Kem dưỡng ẩm', sale_price: 125000, stock: 80, supplier_id: supplierIds[1] },
-    { code: 'SP-003', name: 'Nước hoa hồng', sale_price: 99000, stock: 150, supplier_id: supplierIds[2] },
-    { code: 'SP-004', name: 'Serum phục hồi', sale_price: 189000, stock: 60, supplier_id: supplierIds[0] },
-  ];
-
-  const createdProducts = [];
-  for (const item of productSeeds) {
-    const pr = await query(
-      `INSERT INTO products (code, name, sale_price, current_stock, supplier_id)
-       VALUES ($1, $2, $3, $4, $5)
-       RETURNING id`,
-      [item.code, item.name, item.sale_price, 0, item.supplier_id]
-    );
-    const productId = pr.rows[0].id;
-    createdProducts.push({ id: productId, ...item });
-
-    await query(
-      `UPDATE products SET current_stock = current_stock + $1, updated_at = NOW() WHERE id = $2`,
-      [item.stock, productId]
-    );
-    await query(
-      `INSERT INTO stock_movements (product_id, quantity_delta, ref_type, ref_id, note)
-       VALUES ($1, $2, $3, $4, $5)`,
-      [productId, item.stock, 'seed_import', null, 'Dữ liệu mẫu ban đầu']
-    );
-    await query(
-      `INSERT INTO imports (import_code, supplier_id, imported_by, total_quantity, note)
-       VALUES ($1, $2, $3, $4, $5) RETURNING id`,
-      [createSlugCode('IM-'), item.supplier_id, adminUser.rows[0].id, item.stock, 'Nhập kho mẫu ban đầu']
-    ).then(async (r) => {
-      await query(
-        `INSERT INTO import_items (import_id, product_id, quantity) VALUES ($1, $2, $3)`,
-        [r.rows[0].id, productId, item.stock]
-      );
+  const seriesMap = new Map();
+  for (const row of series) {
+    seriesMap.set(row.ym, {
+      label: row.ym,
+      orders: Number(row.orders || 0),
+      revenue: Number(row.revenue || 0),
     });
   }
 
-  const orderProductA = createdProducts[0];
-  const orderProductB = createdProducts[1];
-  const total = orderProductA.sale_price * 2 + orderProductB.sale_price * 1;
+  return {
+    counts: counts[0] || {},
+    monthly_series: [...seriesMap.values()],
+    low_stock: lowStock,
+    recent_logs: logs.map(rowLog),
+    recent_orders: recentOrders.rows || recentOrders, // safety
+    recent_imports: recentImports.rows || recentImports,
+  };
+}
 
-  await withTx(async (client) => {
-    const orderRes = await client.query(
-      `INSERT INTO orders (order_code, customer_id, customer_name, customer_phone, customer_address, total_amount, is_paid, created_by)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-       RETURNING id`,
-      [createSlugCode('DH-'), customerId, 'Nguyễn Văn An', '0981111111', 'Hà Nội', total, true, adminUser.rows[0].id]
-    );
-    const orderId = orderRes.rows[0].id;
-    const items = [
-      { product: orderProductA, qty: 2, price: orderProductA.sale_price },
-      { product: orderProductB, qty: 1, price: orderProductB.sale_price },
-    ];
-    for (const item of items) {
-      await client.query(
-        `INSERT INTO order_items (order_id, product_id, product_name_snapshot, quantity, unit_price, line_total)
-         VALUES ($1, $2, $3, $4, $5, $6)`,
-        [orderId, item.product.id, item.product.name, item.qty, item.price, item.qty * item.price]
-      );
-      await client.query(
-        `UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`,
-        [item.qty, item.product.id]
-      );
-      await addStockMovement(client, {
-        product_id: item.product.id,
-        quantity_delta: -item.qty,
-        ref_type: 'order',
-        ref_id: orderId,
-        note: 'Bán mẫu',
-      });
+async function getMonthlyReport(month, year) {
+  const range = monthRange(month, year);
+  const paid = await q(
+    `SELECT COALESCE(SUM(total_amount),0)::numeric AS v FROM orders WHERE created_at >= $1 AND created_at < $2 AND is_paid = TRUE`,
+    [range.start, range.end]
+  );
+  const unpaid = await q(
+    `SELECT COALESCE(SUM(total_amount),0)::numeric AS v FROM orders WHERE created_at >= $1 AND created_at < $2 AND is_paid = FALSE`,
+    [range.start, range.end]
+  );
+  const ordersCount = await q(
+    `SELECT COUNT(*)::int AS v FROM orders WHERE created_at >= $1 AND created_at < $2`,
+    [range.start, range.end]
+  );
+  const revenue = await q(
+    `SELECT COALESCE(SUM(total_amount),0)::numeric AS v FROM orders WHERE created_at >= $1 AND created_at < $2`,
+    [range.start, range.end]
+  );
+  const importQty = await q(
+    `SELECT COALESCE(SUM(ii.quantity),0)::int AS v
+     FROM imports i
+     JOIN import_items ii ON ii.import_id = i.id
+     WHERE i.created_at >= $1 AND i.created_at < $2`,
+    [range.start, range.end]
+  );
+  const soldQty = await q(
+    `SELECT COALESCE(SUM(oi.quantity),0)::int AS v
+     FROM orders o
+     JOIN order_items oi ON oi.order_id = o.id
+     WHERE o.created_at >= $1 AND o.created_at < $2`,
+    [range.start, range.end]
+  );
+  const currentStock = await q(`SELECT COALESCE(SUM(current_stock),0)::int AS v FROM products`);
+  const afterImports = await q(
+    `SELECT COALESCE(SUM(ii.quantity),0)::int AS v
+     FROM imports i
+     JOIN import_items ii ON ii.import_id = i.id
+     WHERE i.created_at >= $1`,
+    [range.end]
+  );
+  const afterOrders = await q(
+    `SELECT COALESCE(SUM(oi.quantity),0)::int AS v
+     FROM orders o
+     JOIN order_items oi ON oi.order_id = o.id
+     WHERE o.created_at >= $1`,
+    [range.end]
+  );
+  const topSold = await q(
+    `WITH sold AS (
+      SELECT oi.product_id, SUM(oi.quantity)::int AS qty
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE o.created_at >= $1 AND o.created_at < $2
+      GROUP BY oi.product_id
+    )
+    SELECT p.id, p.code, p.name, p.category, p.unit, p.specification, p.current_stock, COALESCE(s.qty,0)::int AS sold_qty
+    FROM products p
+    LEFT JOIN sold s ON s.product_id = p.id
+    ORDER BY sold_qty DESC, p.current_stock DESC, p.name ASC
+    LIMIT 10`,
+    [range.start, range.end]
+  );
+  const topStock = await q(
+    `SELECT id, code, name, category, unit, specification, current_stock
+     FROM products
+     ORDER BY current_stock DESC, name ASC
+     LIMIT 10`
+  );
+  const byProduct = await q(
+    `WITH sold AS (
+      SELECT oi.product_id, SUM(oi.quantity)::int AS qty
+      FROM order_items oi
+      JOIN orders o ON o.id = oi.order_id
+      WHERE o.created_at >= $1 AND o.created_at < $2
+      GROUP BY oi.product_id
+    )
+    SELECT p.id, p.code, p.name, p.category, p.unit, p.specification, p.current_stock, COALESCE(s.qty,0)::int AS sold_qty
+    FROM products p
+    LEFT JOIN sold s ON s.product_id = p.id
+    ORDER BY sold_qty DESC, p.name ASC`,
+    [range.start, range.end]
+  );
+
+  return {
+    month: range.month,
+    year: range.year,
+    month_label: monthLabel(range.month, range.year),
+    total_orders: Number(ordersCount.rows[0].v || 0),
+    total_revenue: Number(revenue.rows[0].v || 0),
+    total_paid: Number(paid.rows[0].v || 0),
+    total_unpaid: Number(unpaid.rows[0].v || 0),
+    total_import_qty: Number(importQty.rows[0].v || 0),
+    total_sold_qty: Number(soldQty.rows[0].v || 0),
+    ending_stock: Number(currentStock.rows[0].v || 0) - Number(afterImports.rows[0].v || 0) + Number(afterOrders.rows[0].v || 0),
+    top_sold: topSold.rows,
+    top_stock: topStock.rows,
+    by_product: byProduct.rows,
+  };
+}
+
+async function getSummaryReport() {
+  const totalRevenue = await q(`SELECT COALESCE(SUM(total_amount),0)::numeric AS v FROM orders`);
+  const currentStock = await q(`SELECT COALESCE(SUM(current_stock),0)::int AS v FROM products`);
+  const totalProducts = await q(`SELECT COUNT(*)::int AS v FROM products`);
+  const paid = await q(`SELECT COALESCE(SUM(total_amount),0)::numeric AS v FROM orders WHERE is_paid = TRUE`);
+  const unpaid = await q(`SELECT COALESCE(SUM(total_amount),0)::numeric AS v FROM orders WHERE is_paid = FALSE`);
+  const topSold = await q(`
+    WITH sold AS (
+      SELECT oi.product_id, SUM(oi.quantity)::int AS qty
+      FROM order_items oi
+      GROUP BY oi.product_id
+    )
+    SELECT p.id, p.code, p.name, p.category, p.unit, p.specification, p.current_stock, COALESCE(s.qty,0)::int AS sold_qty
+    FROM products p
+    LEFT JOIN sold s ON s.product_id = p.id
+    ORDER BY sold_qty DESC, p.current_stock DESC, p.name ASC
+    LIMIT 10
+  `);
+  const topStock = await q(`
+    SELECT id, code, name, category, unit, specification, current_stock
+    FROM products
+    ORDER BY current_stock DESC, name ASC
+    LIMIT 10
+  `);
+  return {
+    total_products: Number(totalProducts.rows[0].v || 0),
+    total_revenue: Number(totalRevenue.rows[0].v || 0),
+    total_paid: Number(paid.rows[0].v || 0),
+    total_unpaid: Number(unpaid.rows[0].v || 0),
+    total_stock: Number(currentStock.rows[0].v || 0),
+    top_sold: topSold.rows,
+    top_stock: topStock.rows,
+  };
+}
+
+async function getImportItems(importIds) {
+  if (!importIds.length) return [];
+  const { rows } = await q(
+    `SELECT ii.*, p.code, p.name, p.category, p.unit, p.specification
+     FROM import_items ii
+     JOIN products p ON p.id = ii.product_id
+     WHERE ii.import_id = ANY($1::int[])
+     ORDER BY ii.id ASC`,
+    [importIds]
+  );
+  return rows;
+}
+
+async function getOrderItems(orderIds) {
+  if (!orderIds.length) return [];
+  const { rows } = await q(
+    `SELECT oi.*, p.code, p.name, p.category, p.unit, p.specification
+     FROM order_items oi
+     JOIN products p ON p.id = oi.product_id
+     WHERE oi.order_id = ANY($1::int[])
+     ORDER BY oi.id ASC`,
+    [orderIds]
+  );
+  return rows;
+}
+
+async function listImports(filters = {}) {
+  const params = [];
+  const where = [];
+  if (filters.from) {
+    params.push(filters.from);
+    where.push(`i.created_at >= $${params.length}`);
+  }
+  if (filters.to) {
+    params.push(filters.to);
+    where.push(`i.created_at < $${params.length}`);
+  }
+  const sql = `
+    SELECT i.*, s.name AS supplier_name, u.full_name AS imported_by_name
+    FROM imports i
+    LEFT JOIN suppliers s ON s.id = i.supplier_id
+    LEFT JOIN users u ON u.id = i.imported_by
+    ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+    ORDER BY i.created_at DESC, i.id DESC
+  `;
+  const { rows } = await q(sql, params);
+  const imports = rows.map(rowImport);
+  const items = await getImportItems(imports.map(x => x.id));
+  const itemMap = new Map();
+  for (const item of items) {
+    const arr = itemMap.get(item.import_id) || [];
+    arr.push({
+      id: item.id,
+      import_id: item.import_id,
+      product_id: item.product_id,
+      product_code: item.code,
+      product_name: item.name,
+      category: item.category,
+      unit: item.unit,
+      specification: item.specification,
+      quantity: i(item.quantity),
+    });
+    itemMap.set(item.import_id, arr);
+  }
+  for (const row of imports) row.items = itemMap.get(row.id) || [];
+  return imports;
+}
+
+async function listOrders(filters = {}) {
+  const params = [];
+  const where = [];
+  if (filters.status === 'paid') where.push('o.is_paid = TRUE');
+  if (filters.status === 'unpaid') where.push('o.is_paid = FALSE');
+  if (filters.from) {
+    params.push(filters.from);
+    where.push(`o.created_at >= $${params.length}`);
+  }
+  if (filters.to) {
+    params.push(filters.to);
+    where.push(`o.created_at < $${params.length}`);
+  }
+  const sql = `
+    SELECT o.*, u.full_name AS created_by_name
+    FROM orders o
+    LEFT JOIN users u ON u.id = o.created_by
+    ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
+    ORDER BY o.created_at DESC, o.id DESC
+  `;
+  const { rows } = await q(sql, params);
+  const orders = rows.map(rowOrder);
+  const items = await getOrderItems(orders.map(x => x.id));
+  const itemMap = new Map();
+  for (const item of items) {
+    const arr = itemMap.get(item.order_id) || [];
+    arr.push({
+      id: item.id,
+      order_id: item.order_id,
+      product_id: item.product_id,
+      product_code: item.code,
+      product_name: item.name,
+      category: item.category,
+      unit: item.unit,
+      specification: item.specification,
+      quantity: i(item.quantity),
+      unit_price: n(item.unit_price),
+      line_total: n(item.line_total),
+    });
+    itemMap.set(item.order_id, arr);
+  }
+  for (const row of orders) row.items = itemMap.get(row.id) || [];
+  return orders;
+}
+
+async function getOrderById(id) {
+  const orders = await listOrders({});
+  return orders.find(x => x.id === i(id)) || null;
+}
+
+async function getImportById(id) {
+  const imports = await listImports({});
+  return imports.find(x => x.id === i(id)) || null;
+}
+
+async function resolveCustomer(client, payload) {
+  const customer_id = payload.customer_id ? i(payload.customer_id) : null;
+  const customer_name = text(payload.customer_name);
+  const customer_phone = text(payload.customer_phone);
+  const customer_address = text(payload.customer_address);
+
+  if (customer_id) {
+    const found = await client.query(`SELECT * FROM customers WHERE id = $1`, [customer_id]);
+    if (!found.rowCount) throw new Error('Khách hàng không tồn tại.');
+    return rowCustomer(found.rows[0]);
+  }
+
+  if (!customer_name) {
+    return {
+      id: null,
+      name: 'Khách lẻ',
+      phone: '',
+      address: '',
+      is_walk_in: true,
+    };
+  }
+
+  const existing = await client.query(
+    `SELECT * FROM customers
+     WHERE lower(name) = lower($1)
+       AND COALESCE(phone,'') = COALESCE($2,'')
+     LIMIT 1`,
+    [customer_name, customer_phone]
+  );
+  if (existing.rowCount) return rowCustomer(existing.rows[0]);
+
+  const created = await client.query(
+    `INSERT INTO customers (name, phone, address, is_walk_in)
+     VALUES ($1,$2,$3,TRUE)
+     RETURNING *`,
+    [customer_name, customer_phone, customer_address]
+  );
+  return rowCustomer(created.rows[0]);
+}
+
+async function validateProductsForOrder(client, items) {
+  if (!items.length) throw new Error('Phải có ít nhất 1 sản phẩm.');
+  const ids = items.map(x => x.product_id);
+  const result = await client.query(
+    `SELECT id, name, current_stock, sale_price FROM products WHERE id = ANY($1::int[])`,
+    [ids]
+  );
+  const map = new Map(result.rows.map(row => [row.id, row]));
+  for (const item of items) {
+    const product = map.get(item.product_id);
+    if (!product) throw new Error(`Sản phẩm #${item.product_id} không tồn tại.`);
+    if (i(product.current_stock) < item.quantity) {
+      throw new Error(`Sản phẩm "${product.name}" không đủ tồn kho.`);
     }
+  }
+  return map;
+}
+
+async function applyStockDelta(client, items, delta, actorId, refType, refId, note) {
+  for (const item of items) {
+    await client.query(
+      `UPDATE products SET current_stock = current_stock + $1, updated_at = NOW() WHERE id = $2`,
+      [delta * item.quantity, item.product_id]
+    );
+    await client.query(
+      `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+       VALUES ($1,$2,$3,$4,$5,$6)`,
+      [
+        'STOCK',
+        'products',
+        item.product_id,
+        null,
+        { delta: delta * item.quantity, refType, refId, note },
+        actorId,
+      ]
+    );
+  }
+}
+
+async function createOrUpdateImport(client, payload, existing = null, actorId = null) {
+  const supplier_id = i(payload.supplier_id);
+  if (!supplier_id) throw new Error('Vui lòng chọn nhà cung ứng.');
+  const supplier = await client.query(`SELECT * FROM suppliers WHERE id = $1`, [supplier_id]);
+  if (!supplier.rowCount) throw new Error('Nhà cung ứng không tồn tại.');
+
+  const items = mergeItems(payload.items);
+  if (!items.length) throw new Error('Phải có ít nhất 1 dòng nhập kho.');
+
+  const productIds = items.map(x => x.product_id);
+  const products = await client.query(`SELECT id, name FROM products WHERE id = ANY($1::int[])`, [productIds]);
+  if (products.rowCount !== productIds.length) throw new Error('Có sản phẩm không tồn tại.');
+
+  const createdAt = text(payload.created_at) ? parseDateValue(payload.created_at) : (existing ? new Date(existing.created_at) : new Date());
+  const note = text(payload.note);
+
+  const oldSnapshot = existing ? JSON.parse(JSON.stringify(existing)) : null;
+  const oldItems = existing ? existing.items : [];
+
+  if (existing) {
+    for (const item of oldItems) {
+      await client.query(`UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`, [item.quantity, item.product_id]);
+    }
+    await client.query(`DELETE FROM import_items WHERE import_id = $1`, [existing.id]);
+    await client.query(
+      `UPDATE imports SET supplier_id = $1, note = $2, created_at = $3, updated_at = NOW() WHERE id = $4`,
+      [supplier_id, note, createdAt, existing.id]
+    );
+    for (const item of items) {
+      await client.query(`INSERT INTO import_items (import_id, product_id, quantity, created_at) VALUES ($1,$2,$3,$4)`, [existing.id, item.product_id, item.quantity, createdAt]);
+      await client.query(`UPDATE products SET current_stock = current_stock + $1, updated_at = NOW() WHERE id = $2`, [item.quantity, item.product_id]);
+    }
+    await logAction(client, {
+      action: 'UPDATE',
+      entity_type: 'imports',
+      entity_id: existing.id,
+      old_data: oldSnapshot,
+      new_data: { ...existing, supplier_id, note, created_at: createdAt, items },
+      actor_id: actorId,
+    });
+    return existing.id;
+  }
+
+  const importCode = code('IMP');
+  const imported = await client.query(
+    `INSERT INTO imports (import_code, supplier_id, imported_by, note, created_at)
+     VALUES ($1,$2,$3,$4,$5)
+     RETURNING *`,
+    [importCode, supplier_id, actorId, note, createdAt]
+  );
+  const importRow = imported.rows[0];
+  for (const item of items) {
+    await client.query(`INSERT INTO import_items (import_id, product_id, quantity, created_at) VALUES ($1,$2,$3,$4)`, [importRow.id, item.product_id, item.quantity, createdAt]);
+    await client.query(`UPDATE products SET current_stock = current_stock + $1, updated_at = NOW() WHERE id = $2`, [item.quantity, item.product_id]);
+  }
+  await logAction(client, {
+    action: 'CREATE',
+    entity_type: 'imports',
+    entity_id: importRow.id,
+    old_data: null,
+    new_data: { import_code: importRow.import_code, supplier_id, note, created_at: createdAt, items },
+    actor_id: actorId,
+  });
+  return importRow.id;
+}
+
+async function createOrUpdateOrder(client, payload, existing = null, actorId = null) {
+  const items = mergeItems(payload.items);
+  if (!items.length) throw new Error('Phải có ít nhất 1 dòng bán hàng.');
+
+  const customer = await resolveCustomer(client, payload);
+  const createdAt = text(payload.created_at) ? parseDateValue(payload.created_at) : (existing ? new Date(existing.created_at) : new Date());
+  const isPaid = payload.is_paid === undefined || payload.is_paid === null ? (existing ? existing.is_paid : false) : Boolean(payload.is_paid);
+  const payment = Boolean(isPaid);
+
+  if (existing) {
+    for (const item of existing.items) {
+      await client.query(`UPDATE products SET current_stock = current_stock + $1, updated_at = NOW() WHERE id = $2`, [item.quantity, item.product_id]);
+    }
+  }
+
+  const map = await validateProductsForOrder(client, items);
+
+  if (existing) {
+    await client.query(`DELETE FROM order_items WHERE order_id = $1`, [existing.id]);
+    await client.query(
+      `UPDATE orders
+       SET customer_id = $1, customer_name = $2, customer_phone = $3, customer_address = $4, total_amount = $5, is_paid = $6, created_at = $7, updated_at = NOW()
+       WHERE id = $8`,
+      [customer.id, customer.name, customer.phone, customer.address, items.reduce((sum, item) => sum + (n(item.unit_price || map.get(item.product_id).sale_price) * item.quantity), 0), payment, createdAt, existing.id]
+    );
+    let total = 0;
+    for (const item of items) {
+      const product = map.get(item.product_id);
+      const unitPrice = n(item.unit_price || product.sale_price);
+      const lineTotal = unitPrice * item.quantity;
+      total += lineTotal;
+      await client.query(
+        `INSERT INTO order_items (order_id, product_id, product_name_snapshot, quantity, unit_price, line_total, created_at)
+         VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+        [existing.id, item.product_id, product.name, item.quantity, unitPrice, lineTotal, createdAt]
+      );
+      await client.query(`UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`, [item.quantity, item.product_id]);
+    }
+    await client.query(`UPDATE orders SET total_amount = $1 WHERE id = $2`, [total, existing.id]);
+    await logAction(client, {
+      action: 'UPDATE',
+      entity_type: 'orders',
+      entity_id: existing.id,
+      old_data: JSON.parse(JSON.stringify(existing)),
+      new_data: { ...existing, customer_id: customer.id, customer_name: customer.name, customer_phone: customer.phone, customer_address: customer.address, is_paid: payment, created_at: createdAt, items },
+      actor_id: actorId,
+    });
+    return existing.id;
+  }
+
+  const orderCode = code('ORD');
+  const orderTotal = items.reduce((sum, item) => {
+    const product = map.get(item.product_id);
+    const unitPrice = n(item.unit_price || product.sale_price);
+    return sum + unitPrice * item.quantity;
+  }, 0);
+
+  const orderInsert = await client.query(
+    `INSERT INTO orders (order_code, customer_id, customer_name, customer_phone, customer_address, total_amount, is_paid, created_by, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+     RETURNING *`,
+    [orderCode, customer.id, customer.name, customer.phone, customer.address, orderTotal, payment, actorId, createdAt]
+  );
+  const orderRow = orderInsert.rows[0];
+
+  for (const item of items) {
+    const product = map.get(item.product_id);
+    const unitPrice = n(item.unit_price || product.sale_price);
+    const lineTotal = unitPrice * item.quantity;
+    await client.query(
+      `INSERT INTO order_items (order_id, product_id, product_name_snapshot, quantity, unit_price, line_total, created_at)
+       VALUES ($1,$2,$3,$4,$5,$6,$7)`,
+      [orderRow.id, item.product_id, product.name, item.quantity, unitPrice, lineTotal, createdAt]
+    );
+    await client.query(`UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`, [item.quantity, item.product_id]);
+  }
+  await logAction(client, {
+    action: 'CREATE',
+    entity_type: 'orders',
+    entity_id: orderRow.id,
+    old_data: null,
+    new_data: { order_code: orderRow.order_code, customer_id: customer.id, customer_name: customer.name, customer_phone: customer.phone, customer_address: customer.address, total_amount: orderTotal, is_paid: payment, created_at: createdAt, items },
+    actor_id: actorId,
+  });
+  return orderRow.id;
+}
+
+async function loadImportById(client, id) {
+  const { rows } = await client.query(
+    `SELECT i.*, s.name AS supplier_name, u.full_name AS imported_by_name
+     FROM imports i
+     LEFT JOIN suppliers s ON s.id = i.supplier_id
+     LEFT JOIN users u ON u.id = i.imported_by
+     WHERE i.id = $1`,
+    [id]
+  );
+  if (!rows.length) return null;
+  const imp = rowImport(rows[0]);
+  const items = await client.query(
+    `SELECT ii.*, p.code, p.name, p.category, p.unit, p.specification
+     FROM import_items ii
+     JOIN products p ON p.id = ii.product_id
+     WHERE ii.import_id = $1
+     ORDER BY ii.id ASC`,
+    [id]
+  );
+  imp.items = items.rows.map(item => ({
+    id: item.id,
+    import_id: item.import_id,
+    product_id: item.product_id,
+    product_code: item.code,
+    product_name: item.name,
+    category: item.category,
+    unit: item.unit,
+    specification: item.specification,
+    quantity: i(item.quantity),
+  }));
+  return imp;
+}
+
+async function loadOrderById(client, id) {
+  const { rows } = await client.query(
+    `SELECT o.*, u.full_name AS created_by_name
+     FROM orders o
+     LEFT JOIN users u ON u.id = o.created_by
+     WHERE o.id = $1`,
+    [id]
+  );
+  if (!rows.length) return null;
+  const order = rowOrder(rows[0]);
+  const items = await client.query(
+    `SELECT oi.*, p.code, p.name, p.category, p.unit, p.specification
+     FROM order_items oi
+     JOIN products p ON p.id = oi.product_id
+     WHERE oi.order_id = $1
+     ORDER BY oi.id ASC`,
+    [id]
+  );
+  order.items = items.rows.map(item => ({
+    id: item.id,
+    order_id: item.order_id,
+    product_id: item.product_id,
+    product_code: item.code,
+    product_name: item.name,
+    category: item.category,
+    unit: item.unit,
+    specification: item.specification,
+    quantity: i(item.quantity),
+    unit_price: n(item.unit_price),
+    line_total: n(item.line_total),
+  }));
+  return order;
+}
+
+function pdfHeader(doc, title, subtitle = '') {
+  doc.fontSize(18).fillColor('#333').text(title, { align: 'center' });
+  if (subtitle) doc.moveDown(0.3).fontSize(10).fillColor('#666').text(subtitle, { align: 'center' });
+  doc.moveDown();
+  doc.strokeColor('#d7c0d0').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
+  doc.moveDown();
+}
+
+function pdfKv(doc, label, value) {
+  doc.fontSize(11).fillColor('#333').text(`${label}: `, { continued: true }).fillColor('#8b5c7d').text(String(value ?? ''));
+}
+
+function renderPdfList(doc, title, rows, mapper) {
+  doc.moveDown();
+  doc.fontSize(13).fillColor('#333').text(title);
+  doc.moveDown(0.4);
+  rows.forEach((row, idx) => {
+    const textLine = mapper(row, idx);
+    doc.fontSize(10).fillColor('#444').text(`${idx + 1}. ${textLine}`, { indent: 10 });
   });
 }
 
-async function getUserById(id) {
-  const r = await query('SELECT id, username, full_name, role FROM users WHERE id = $1', [id]);
-  return r.rows[0] || null;
+function sendMonthlyPdf(res, report) {
+  const doc = new PDFDocument({ margin: 40, size: 'A4' });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `attachment; filename="bao-cao-${report.month_label.replace('/', '-')}.pdf"`);
+  doc.pipe(res);
+  pdfHeader(doc, 'BÁO CÁO THÁNG', `Tháng ${report.month_label}`);
+  pdfKv(doc, 'Tổng số đơn hàng', report.total_orders);
+  pdfKv(doc, 'Tổng doanh thu', `${money(report.total_revenue)} ₫`);
+  pdfKv(doc, 'Đã thu', `${money(report.total_paid)} ₫`);
+  pdfKv(doc, 'Chưa thu', `${money(report.total_unpaid)} ₫`);
+  pdfKv(doc, 'Tổng số lượng nhập kho', report.total_import_qty);
+  pdfKv(doc, 'Tổng số lượng bán ra', report.total_sold_qty);
+  pdfKv(doc, 'Tồn kho cuối tháng', report.ending_stock);
+  renderPdfList(doc, 'Top sản phẩm bán chạy', report.top_sold.slice(0, 10), (r) => `${r.code} - ${r.name} | SL bán: ${r.sold_qty}`);
+  doc.addPage();
+  pdfHeader(doc, 'THỐNG KÊ TỪNG SẢN PHẨM');
+  renderPdfList(doc, 'Danh sách sản phẩm', report.by_product.slice(0, 25), (r) => `${r.code} - ${r.name} | Bán: ${r.sold_qty} | Tồn: ${r.current_stock}`);
+  doc.end();
 }
 
-app.get('/api/auth/me', async (req, res) => {
-  if (!req.session.user) {
-    return res.json({ success: true, user: null });
-  }
-  const user = await getUserById(req.session.user.id);
-  if (!user) {
-    req.session.destroy(() => {});
-    return res.json({ success: true, user: null });
-  }
-  res.json({ success: true, user });
-});
+function sendSummaryPdf(res, summary) {
+  const doc = new PDFDocument({ margin: 40, size: 'A4' });
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', 'attachment; filename="bao-cao-tong-quan.pdf"');
+  doc.pipe(res);
+  pdfHeader(doc, 'BÁO CÁO TỔNG QUAN');
+  pdfKv(doc, 'Tổng số sản phẩm', summary.total_products);
+  pdfKv(doc, 'Tổng tồn kho hiện tại', summary.total_stock);
+  pdfKv(doc, 'Tổng doanh thu', `${money(summary.total_revenue)} ₫`);
+  pdfKv(doc, 'Đã thu', `${money(summary.total_paid)} ₫`);
+  pdfKv(doc, 'Chưa thu', `${money(summary.total_unpaid)} ₫`);
+  renderPdfList(doc, 'Top sản phẩm tồn nhiều', summary.top_stock.slice(0, 10), (r) => `${r.code} - ${r.name} | Tồn: ${r.current_stock}`);
+  doc.addPage();
+  pdfHeader(doc, 'Top sản phẩm bán nhiều');
+  renderPdfList(doc, 'Top bán', summary.top_sold.slice(0, 10), (r) => `${r.code} - ${r.name} | Bán: ${r.sold_qty} | Tồn: ${r.current_stock}`);
+  doc.end();
+}
 
+/* AUTH */
 app.post('/api/auth/login', async (req, res) => {
   try {
-    const { username, password } = req.body;
+    const username = text(req.body.username);
+    const password = text(req.body.password);
     if (!username || !password) {
-      return res.status(400).json({ success: false, message: 'Thiếu username hoặc password.' });
+      return res.status(400).json({ success: false, message: 'Thiếu tài khoản hoặc mật khẩu.' });
     }
-    const result = await query('SELECT * FROM users WHERE username = $1 LIMIT 1', [username.trim()]);
-    const user = result.rows[0];
-    if (!user) {
-      return res.status(401).json({ success: false, message: 'Sai tài khoản hoặc mật khẩu.' });
+    const { rows } = await q(`SELECT * FROM users WHERE lower(username) = lower($1) LIMIT 1`, [username]);
+    if (!rows.length) {
+      return res.status(401).json({ success: false, message: 'Tài khoản hoặc mật khẩu không đúng.' });
     }
-    const ok = bcrypt.compareSync(password, user.password_hash);
+    const user = rows[0];
+    const ok = await bcrypt.compare(password, user.password_hash);
     if (!ok) {
-      return res.status(401).json({ success: false, message: 'Sai tài khoản hoặc mật khẩu.' });
+      return res.status(401).json({ success: false, message: 'Tài khoản hoặc mật khẩu không đúng.' });
     }
-    req.session.user = { id: user.id, username: user.username, full_name: user.full_name, role: user.role };
-    res.json({
-      success: true,
-      user: { id: user.id, username: user.username, full_name: user.full_name, role: user.role },
-    });
+    req.session.user = {
+      id: user.id,
+      username: user.username,
+      full_name: user.full_name,
+      role: user.role,
+    };
+    res.json({ success: true, data: req.session.user });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Không thể đăng nhập.' });
   }
 });
 
@@ -449,1275 +1127,515 @@ app.post('/api/auth/logout', (req, res) => {
   });
 });
 
+app.get('/api/auth/me', (req, res) => {
+  res.json({ success: true, data: req.session.user || null });
+});
+
+/* PRODUCTS */
 app.get('/api/products', async (req, res) => {
   try {
-    const search = (req.query.q || '').trim();
-    const result = await query(
-      `
-      SELECT p.id, p.code, p.name, p.sale_price::float AS sale_price, p.current_stock, p.supplier_id,
-             p.created_at, p.updated_at, COALESCE(s.name, '') AS supplier_name
-      FROM products p
-      LEFT JOIN suppliers s ON s.id = p.supplier_id
-      WHERE ($1 = '' OR p.code ILIKE $2 OR p.name ILIKE $2 OR COALESCE(s.name, '') ILIKE $2)
-      ORDER BY p.created_at DESC, p.id DESC
-      `,
-      [search, `%${search}%`]
+    const products = await getProducts({
+      search: req.query.search || '',
+      category: req.query.category || 'all',
+      frequent: req.query.frequent || 'all',
+      supplier_id: req.query.supplier_id || '',
+      limit: req.query.limit || '',
+    });
+    res.json({ success: true, data: products });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Không thể tải sản phẩm.' });
+  }
+});
+
+app.post('/api/products', requireAuth, async (req, res) => {
+  try {
+    const payload = req.body || {};
+    const codeValue = text(payload.code);
+    const nameValue = text(payload.name);
+    if (!codeValue || !nameValue) throw new Error('Mã và tên sản phẩm là bắt buộc.');
+    const created = await q(
+      `INSERT INTO products (code, name, category, unit, specification, sale_price, current_stock, supplier_id, is_frequent)
+       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+       RETURNING *`,
+      [
+        codeValue,
+        nameValue,
+        text(payload.category),
+        text(payload.unit),
+        text(payload.specification),
+        n(payload.sale_price),
+        i(payload.current_stock),
+        payload.supplier_id ? i(payload.supplier_id) : null,
+        Boolean(payload.is_frequent),
+      ]
     );
-    res.json({ success: true, products: result.rows.map(publicProductRow) });
+    await q(
+      `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+       VALUES ('CREATE','products',$1,$2,$3,$4)`,
+      [created.rows[0].id, null, payload, req.session.user.id]
+    );
+    res.json({ success: true, data: rowProduct(created.rows[0]) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể tạo sản phẩm.' });
   }
 });
 
-app.post('/api/products', authRequired, async (req, res) => {
+app.put('/api/products/:id', requireAuth, async (req, res) => {
   try {
-    const { code, name, sale_price, current_stock = 0, supplier_id = null } = req.body;
-    if (!code || !name) {
-      return res.status(400).json({ success: false, message: 'Mã và tên sản phẩm là bắt buộc.' });
-    }
-    const stock = toInt(current_stock);
-    const price = toFloat(sale_price);
-    const result = await withTx(async (client) => {
-      const productRes = await client.query(
-        `INSERT INTO products (code, name, sale_price, current_stock, supplier_id)
-         VALUES ($1, $2, $3, $4, $5)
-         RETURNING *`,
-        [code.trim(), name.trim(), price, stock, supplier_id || null]
-      );
-      const product = productRes.rows[0];
-      if (stock !== 0) {
-        await addStockMovement(client, {
-          product_id: product.id,
-          quantity_delta: stock,
-          ref_type: 'product_create',
-          ref_id: product.id,
-          note: 'Khởi tạo tồn kho',
-        });
-      }
-      return product;
-    });
-    res.json({ success: true, product: publicProductRow(result) });
+    const id = i(req.params.id);
+    const old = await q(`SELECT * FROM products WHERE id = $1`, [id]);
+    if (!old.rowCount) throw new Error('Sản phẩm không tồn tại.');
+    const payload = req.body || {};
+    const updated = await q(
+      `UPDATE products
+       SET code=$1, name=$2, category=$3, unit=$4, specification=$5, sale_price=$6, current_stock=$7, supplier_id=$8, is_frequent=$9, updated_at=NOW()
+       WHERE id=$10
+       RETURNING *`,
+      [
+        text(payload.code),
+        text(payload.name),
+        text(payload.category),
+        text(payload.unit),
+        text(payload.specification),
+        n(payload.sale_price),
+        i(payload.current_stock),
+        payload.supplier_id ? i(payload.supplier_id) : null,
+        Boolean(payload.is_frequent),
+        id,
+      ]
+    );
+    await q(
+      `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+       VALUES ('UPDATE','products',$1,$2,$3,$4)`,
+      [id, old.rows[0], payload, req.session.user.id]
+    );
+    res.json({ success: true, data: rowProduct(updated.rows[0]) });
   } catch (error) {
-    if (error.code === '23505') {
-      return res.status(400).json({ success: false, message: 'Mã sản phẩm đã tồn tại.' });
-    }
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể cập nhật sản phẩm.' });
   }
 });
 
-app.put('/api/products/:id', authRequired, async (req, res) => {
+app.delete('/api/products/:id', requireAuth, async (req, res) => {
   try {
-    const id = toInt(req.params.id);
-    const { code, name, sale_price, current_stock, supplier_id = null } = req.body;
-    const oldRes = await query('SELECT * FROM products WHERE id = $1', [id]);
-    const old = oldRes.rows[0];
-    if (!old) return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm.' });
-
-    const newStock = current_stock === undefined ? old.current_stock : toInt(current_stock);
-    const stockDelta = newStock - toInt(old.current_stock);
-
-    const result = await withTx(async (client) => {
-      const updated = await client.query(
-        `UPDATE products
-         SET code = $1, name = $2, sale_price = $3, current_stock = $4, supplier_id = $5, updated_at = NOW()
-         WHERE id = $6
-         RETURNING *`,
-        [
-          (code || old.code).trim(),
-          (name || old.name).trim(),
-          sale_price !== undefined ? toFloat(sale_price) : toFloat(old.sale_price),
-          newStock,
-          supplier_id === undefined ? old.supplier_id : supplier_id || null,
-          id,
-        ]
-      );
-      if (stockDelta !== 0) {
-        await addStockMovement(client, {
-          product_id: id,
-          quantity_delta: stockDelta,
-          ref_type: 'product_adjust',
-          ref_id: id,
-          note: 'Điều chỉnh tồn kho',
-        });
-      }
-      return updated.rows[0];
-    });
-
-    res.json({ success: true, product: publicProductRow(result) });
-  } catch (error) {
-    if (error.code === '23505') {
-      return res.status(400).json({ success: false, message: 'Mã sản phẩm đã tồn tại.' });
-    }
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-app.delete('/api/products/:id', authRequired, async (req, res) => {
-  try {
-    const id = toInt(req.params.id);
-    const del = await query('DELETE FROM products WHERE id = $1 RETURNING id', [id]);
-    if (!del.rowCount) return res.status(404).json({ success: false, message: 'Không tìm thấy sản phẩm.' });
+    const id = i(req.params.id);
+    const old = await q(`SELECT * FROM products WHERE id = $1`, [id]);
+    if (!old.rowCount) throw new Error('Sản phẩm không tồn tại.');
+    await q(`DELETE FROM products WHERE id = $1`, [id]);
+    await q(
+      `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+       VALUES ('DELETE','products',$1,$2,$3,$4)`,
+      [id, old.rows[0], null, req.session.user.id]
+    );
     res.json({ success: true });
   } catch (error) {
-    res.status(400).json({
-      success: false,
-      message: 'Không thể xóa sản phẩm vì đang được dùng trong lịch sử nhập kho hoặc bán hàng.',
-    });
+    console.error(error);
+    res.status(400).json({ success: false, message: 'Không thể xóa sản phẩm. Có thể sản phẩm đang được dùng trong đơn nhập/bán.' });
   }
 });
 
-app.get('/api/suppliers', authRequired, async (req, res) => {
+/* SUPPLIERS */
+app.get('/api/suppliers', requireAuth, async (req, res) => {
   try {
-    const r = await query('SELECT * FROM suppliers ORDER BY created_at DESC, id DESC');
-    res.json({ success: true, suppliers: r.rows });
+    res.json({ success: true, data: await getSuppliers() });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Không thể tải nhà cung ứng.' });
   }
 });
 
-app.post('/api/suppliers', authRequired, async (req, res) => {
+app.post('/api/suppliers', requireAuth, async (req, res) => {
   try {
-    const { name, phone, address } = req.body;
-    if (!name) return res.status(400).json({ success: false, message: 'Tên nhà cung ứng là bắt buộc.' });
-    const r = await query(
-      `INSERT INTO suppliers (name, phone, address) VALUES ($1, $2, $3) RETURNING *`,
-      [name.trim(), phone || '', address || '']
+    const payload = req.body || {};
+    const nameValue = text(payload.name);
+    if (!nameValue) throw new Error('Tên nhà cung ứng là bắt buộc.');
+    const created = await q(
+      `INSERT INTO suppliers (name, phone, address)
+       VALUES ($1,$2,$3)
+       RETURNING *`,
+      [nameValue, text(payload.phone), text(payload.address)]
     );
-    res.json({ success: true, supplier: r.rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-app.put('/api/suppliers/:id', authRequired, async (req, res) => {
-  try {
-    const id = toInt(req.params.id);
-    const { name, phone, address } = req.body;
-    const r = await query(
-      `UPDATE suppliers SET name = $1, phone = $2, address = $3 WHERE id = $4 RETURNING *`,
-      [name.trim(), phone || '', address || '', id]
+    await q(
+      `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+       VALUES ('CREATE','suppliers',$1,$2,$3,$4)`,
+      [created.rows[0].id, null, payload, req.session.user.id]
     );
-    if (!r.rowCount) return res.status(404).json({ success: false, message: 'Không tìm thấy nhà cung ứng.' });
-    res.json({ success: true, supplier: r.rows[0] });
+    res.json({ success: true, data: rowSupplier(created.rows[0]) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể tạo nhà cung ứng.' });
   }
 });
 
-app.delete('/api/suppliers/:id', authRequired, async (req, res) => {
+app.put('/api/suppliers/:id', requireAuth, async (req, res) => {
   try {
-    const id = toInt(req.params.id);
-    const r = await query('DELETE FROM suppliers WHERE id = $1 RETURNING id', [id]);
-    if (!r.rowCount) return res.status(404).json({ success: false, message: 'Không tìm thấy nhà cung ứng.' });
+    const id = i(req.params.id);
+    const old = await q(`SELECT * FROM suppliers WHERE id = $1`, [id]);
+    if (!old.rowCount) throw new Error('Nhà cung ứng không tồn tại.');
+    const payload = req.body || {};
+    const updated = await q(
+      `UPDATE suppliers SET name=$1, phone=$2, address=$3, updated_at=NOW() WHERE id=$4 RETURNING *`,
+      [text(payload.name), text(payload.phone), text(payload.address), id]
+    );
+    await q(
+      `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+       VALUES ('UPDATE','suppliers',$1,$2,$3,$4)`,
+      [id, old.rows[0], payload, req.session.user.id]
+    );
+    res.json({ success: true, data: rowSupplier(updated.rows[0]) });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể cập nhật nhà cung ứng.' });
+  }
+});
+
+app.delete('/api/suppliers/:id', requireAuth, async (req, res) => {
+  try {
+    const id = i(req.params.id);
+    const old = await q(`SELECT * FROM suppliers WHERE id = $1`, [id]);
+    if (!old.rowCount) throw new Error('Nhà cung ứng không tồn tại.');
+    await q(`DELETE FROM suppliers WHERE id = $1`, [id]);
+    await q(
+      `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+       VALUES ('DELETE','suppliers',$1,$2,$3,$4)`,
+      [id, old.rows[0], null, req.session.user.id]
+    );
     res.json({ success: true });
   } catch (error) {
-    res.status(400).json({ success: false, message: 'Không thể xóa vì nhà cung ứng đang được dùng.' });
+    console.error(error);
+    res.status(400).json({ success: false, message: 'Không thể xóa nhà cung ứng.' });
   }
 });
 
-app.get('/api/customers', authRequired, async (req, res) => {
+/* CUSTOMERS */
+app.get('/api/customers', requireAuth, async (req, res) => {
   try {
-    const r = await query('SELECT * FROM customers ORDER BY created_at DESC, id DESC');
-    res.json({ success: true, customers: r.rows });
+    res.json({ success: true, data: await getCustomers() });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Không thể tải khách hàng.' });
   }
 });
 
-app.post('/api/customers', authRequired, async (req, res) => {
+app.post('/api/customers', requireAuth, async (req, res) => {
   try {
-    const { name, phone, address, is_walk_in = false } = req.body;
-    if (!name) return res.status(400).json({ success: false, message: 'Tên khách hàng là bắt buộc.' });
-    const r = await query(
-      `INSERT INTO customers (name, phone, address, is_walk_in) VALUES ($1, $2, $3, $4) RETURNING *`,
-      [name.trim(), phone || '', address || '', !!is_walk_in]
+    const payload = req.body || {};
+    const nameValue = text(payload.name);
+    if (!nameValue) throw new Error('Tên khách hàng là bắt buộc.');
+    const created = await q(
+      `INSERT INTO customers (name, phone, address, is_walk_in)
+       VALUES ($1,$2,$3,$4)
+       RETURNING *`,
+      [nameValue, text(payload.phone), text(payload.address), Boolean(payload.is_walk_in)]
     );
-    res.json({ success: true, customer: r.rows[0] });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
-  }
-});
-
-app.put('/api/customers/:id', authRequired, async (req, res) => {
-  try {
-    const id = toInt(req.params.id);
-    const { name, phone, address, is_walk_in = false } = req.body;
-    const r = await query(
-      `UPDATE customers SET name = $1, phone = $2, address = $3, is_walk_in = $4 WHERE id = $5 RETURNING *`,
-      [name.trim(), phone || '', address || '', !!is_walk_in, id]
+    await q(
+      `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+       VALUES ('CREATE','customers',$1,$2,$3,$4)`,
+      [created.rows[0].id, null, payload, req.session.user.id]
     );
-    if (!r.rowCount) return res.status(404).json({ success: false, message: 'Không tìm thấy khách hàng.' });
-    res.json({ success: true, customer: r.rows[0] });
+    res.json({ success: true, data: rowCustomer(created.rows[0]) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể tạo khách hàng.' });
   }
 });
 
-app.delete('/api/customers/:id', authRequired, async (req, res) => {
+app.put('/api/customers/:id', requireAuth, async (req, res) => {
   try {
-    const id = toInt(req.params.id);
-    const r = await query('DELETE FROM customers WHERE id = $1 RETURNING id', [id]);
-    if (!r.rowCount) return res.status(404).json({ success: false, message: 'Không tìm thấy khách hàng.' });
+    const id = i(req.params.id);
+    const old = await q(`SELECT * FROM customers WHERE id = $1`, [id]);
+    if (!old.rowCount) throw new Error('Khách hàng không tồn tại.');
+    const payload = req.body || {};
+    const updated = await q(
+      `UPDATE customers SET name=$1, phone=$2, address=$3, is_walk_in=$4, updated_at=NOW() WHERE id=$5 RETURNING *`,
+      [text(payload.name), text(payload.phone), text(payload.address), Boolean(payload.is_walk_in), id]
+    );
+    await q(
+      `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+       VALUES ('UPDATE','customers',$1,$2,$3,$4)`,
+      [id, old.rows[0], payload, req.session.user.id]
+    );
+    res.json({ success: true, data: rowCustomer(updated.rows[0]) });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể cập nhật khách hàng.' });
+  }
+});
+
+app.delete('/api/customers/:id', requireAuth, async (req, res) => {
+  try {
+    const id = i(req.params.id);
+    const old = await q(`SELECT * FROM customers WHERE id = $1`, [id]);
+    if (!old.rowCount) throw new Error('Khách hàng không tồn tại.');
+    await q(`DELETE FROM customers WHERE id = $1`, [id]);
+    await q(
+      `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+       VALUES ('DELETE','customers',$1,$2,$3,$4)`,
+      [id, old.rows[0], null, req.session.user.id]
+    );
     res.json({ success: true });
   } catch (error) {
-    res.status(400).json({ success: false, message: 'Không thể xóa vì khách hàng đang có hóa đơn.' });
+    console.error(error);
+    res.status(400).json({ success: false, message: 'Không thể xóa khách hàng.' });
   }
 });
 
-async function fetchImportById(id) {
-  const result = await query(
-    `
-    SELECT i.id, i.import_code, i.supplier_id, s.name AS supplier_name, i.imported_by,
-           u.full_name AS imported_by_name, i.total_quantity, i.note, i.created_at,
-           COALESCE(
-             json_agg(
-               json_build_object(
-                 'product_id', ii.product_id,
-                 'product_name', p.name,
-                 'code', p.code,
-                 'quantity', ii.quantity
-               ) ORDER BY ii.id
-             ) FILTER (WHERE ii.id IS NOT NULL),
-             '[]'
-           ) AS items
-    FROM imports i
-    JOIN suppliers s ON s.id = i.supplier_id
-    LEFT JOIN users u ON u.id = i.imported_by
-    LEFT JOIN import_items ii ON ii.import_id = i.id
-    LEFT JOIN products p ON p.id = ii.product_id
-    WHERE i.id = $1
-    GROUP BY i.id, s.name, u.full_name
-    `,
-    [id]
-  );
-  if (!result.rowCount) return null;
-  const row = result.rows[0];
-  return {
-    ...row,
-    total_quantity: toInt(row.total_quantity),
-    items: row.items,
-  };
-}
-
-async function fetchImports() {
-  const result = await query(
-    `
-    SELECT i.id, i.import_code, i.supplier_id, s.name AS supplier_name, i.imported_by,
-           u.full_name AS imported_by_name, i.total_quantity, i.note, i.created_at,
-           COALESCE(
-             json_agg(
-               json_build_object(
-                 'product_id', ii.product_id,
-                 'product_name', p.name,
-                 'code', p.code,
-                 'quantity', ii.quantity
-               ) ORDER BY ii.id
-             ) FILTER (WHERE ii.id IS NOT NULL),
-             '[]'
-           ) AS items
-    FROM imports i
-    JOIN suppliers s ON s.id = i.supplier_id
-    LEFT JOIN users u ON u.id = i.imported_by
-    LEFT JOIN import_items ii ON ii.import_id = i.id
-    LEFT JOIN products p ON p.id = ii.product_id
-    GROUP BY i.id, s.name, u.full_name
-    ORDER BY i.created_at DESC, i.id DESC
-    `,
-    []
-  );
-  return result.rows.map((row) => ({
-    ...row,
-    total_quantity: toInt(row.total_quantity),
-    items: row.items,
-  }));
-}
-
-app.get('/api/imports', authRequired, async (req, res) => {
+/* IMPORTS */
+app.get('/api/imports', requireAuth, async (req, res) => {
   try {
-    const imports = await fetchImports();
-    res.json({ success: true, imports });
+    res.json({ success: true, data: await listImports({ from: req.query.from, to: req.query.to }) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Không thể tải nhập kho.' });
   }
 });
 
-app.post('/api/imports', authRequired, async (req, res) => {
+app.post('/api/imports', requireAuth, async (req, res) => {
   try {
-    let { supplier_id, product_id, quantity, items, note } = req.body;
-    if (!Array.isArray(items) || items.length === 0) {
-      items = [{ product_id, quantity }];
-    }
-    const cleanItems = normalizeImportItems(items);
-    if (!supplier_id) return res.status(400).json({ success: false, message: 'Vui lòng chọn nhà cung ứng.' });
-    if (cleanItems.length === 0) return res.status(400).json({ success: false, message: 'Vui lòng chọn sản phẩm và số lượng.' });
-
-    const result = await withTx(async (client) => {
-      const supplierCheck = await client.query('SELECT id FROM suppliers WHERE id = $1', [supplier_id]);
-      if (!supplierCheck.rowCount) throw new Error('Nhà cung ứng không tồn tại.');
-
-      const productIds = [...new Set(cleanItems.map((i) => i.product_id))];
-      const prodsRes = await client.query(
-        `SELECT id, name, current_stock FROM products WHERE id = ANY($1::int[]) FOR UPDATE`,
-        [productIds]
-      );
-      if (prodsRes.rowCount !== productIds.length) throw new Error('Có sản phẩm không tồn tại.');
-
-      const importCode = createSlugCode('IM-');
-      const header = await client.query(
-        `INSERT INTO imports (import_code, supplier_id, imported_by, total_quantity, note)
-         VALUES ($1, $2, $3, $4, $5) RETURNING *`,
-        [importCode, supplier_id, req.session.user.id, cleanItems.reduce((s, i) => s + i.quantity, 0), note || '']
-      );
-
-      const importId = header.rows[0].id;
-      for (const item of cleanItems) {
-        const prod = prodsRes.rows.find((p) => p.id === item.product_id);
-        await client.query(
-          `INSERT INTO import_items (import_id, product_id, quantity) VALUES ($1, $2, $3)`,
-          [importId, item.product_id, item.quantity]
-        );
-        await client.query(
-          `UPDATE products SET current_stock = current_stock + $1, updated_at = NOW() WHERE id = $2`,
-          [item.quantity, item.product_id]
-        );
-        await addStockMovement(client, {
-          product_id: item.product_id,
-          quantity_delta: item.quantity,
-          ref_type: 'import',
-          ref_id: importId,
-          note: `Nhập kho: ${prod.name}`,
-        });
-      }
-      return header.rows[0];
-    });
-
-    const created = await fetchImportById(result.id);
-    res.json({ success: true, import: created });
+    const id = await withTx((client) => createOrUpdateImport(client, req.body || {}, null, req.session.user.id));
+    const created = await loadImportById(pool, id);
+    res.json({ success: true, data: created });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể tạo phiếu nhập.' });
   }
 });
 
-async function fetchOrders(filter = {}) {
-  const { status } = filter;
-  const where = [];
-  const params = [];
-  if (status === 'paid') {
-    where.push('o.is_paid = TRUE');
-  } else if (status === 'unpaid') {
-    where.push('o.is_paid = FALSE');
-  }
-  const sqlWhere = where.length ? `WHERE ${where.join(' AND ')}` : '';
-  const result = await query(
-    `
-    SELECT o.id, o.order_code, o.customer_id, o.customer_name, o.customer_phone, o.customer_address,
-           o.total_amount::float AS total_amount, o.is_paid, o.created_by, o.created_at,
-           COALESCE(json_agg(
-             json_build_object(
-               'product_id', oi.product_id,
-               'product_name', oi.product_name_snapshot,
-               'quantity', oi.quantity,
-               'unit_price', oi.unit_price::float,
-               'line_total', oi.line_total::float
-             ) ORDER BY oi.id
-           ) FILTER (WHERE oi.id IS NOT NULL), '[]') AS items
-    FROM orders o
-    LEFT JOIN order_items oi ON oi.order_id = o.id
-    ${sqlWhere}
-    GROUP BY o.id
-    ORDER BY o.created_at DESC, o.id DESC
-    `,
-    params
-  );
-  return result.rows.map((row) => ({ ...row, items: row.items }));
-}
-
-app.get('/api/imports/:id', authRequired, async (req, res) => {
+app.put('/api/imports/:id', requireAuth, async (req, res) => {
   try {
-    const id = toInt(req.params.id);
-    const importData = await fetchImportById(id);
-    if (!importData) return res.status(404).json({ success: false, message: 'Không tìm thấy phiếu nhập.' });
-    res.json({ success: true, import: importData });
+    const id = i(req.params.id);
+    const existing = await loadImportById(pool, id);
+    if (!existing) throw new Error('Phiếu nhập không tồn tại.');
+    await withTx((client) => createOrUpdateImport(client, req.body || {}, existing, req.session.user.id));
+    const updated = await loadImportById(pool, id);
+    res.json({ success: true, data: updated });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể cập nhật phiếu nhập.' });
   }
 });
 
-app.put('/api/imports/:id', authRequired, async (req, res) => {
+app.delete('/api/imports/:id', requireAuth, async (req, res) => {
   try {
-    const id = toInt(req.params.id);
-    let { supplier_id, product_id, quantity, items, note } = req.body;
-
-    if (!Array.isArray(items) || items.length === 0) {
-      items = [{ product_id, quantity }];
-    }
-    const cleanItems = normalizeImportItems(items);
-    if (!supplier_id) return res.status(400).json({ success: false, message: 'Vui lòng chọn nhà cung ứng.' });
-    if (cleanItems.length === 0) return res.status(400).json({ success: false, message: 'Vui lòng chọn sản phẩm và số lượng.' });
-
+    const id = i(req.params.id);
+    const existing = await loadImportById(pool, id);
+    if (!existing) throw new Error('Phiếu nhập không tồn tại.');
     await withTx(async (client) => {
-      const currentImportRes = await client.query(
-        `SELECT id, supplier_id, total_quantity, note FROM imports WHERE id = $1 FOR UPDATE`,
-        [id]
-      );
-      if (!currentImportRes.rowCount) throw new Error('Không tìm thấy phiếu nhập.');
-
-      const oldItemsRes = await client.query(
-        `SELECT ii.id, ii.product_id, ii.quantity, p.name
-         FROM import_items ii
-         JOIN products p ON p.id = ii.product_id
-         WHERE ii.import_id = $1
-         ORDER BY ii.id`,
-        [id]
-      );
-      const oldItems = oldItemsRes.rows;
-
-      const supplierCheck = await client.query('SELECT id FROM suppliers WHERE id = $1', [supplier_id]);
-      if (!supplierCheck.rowCount) throw new Error('Nhà cung ứng không tồn tại.');
-
-      const productIds = [...new Set([...oldItems.map((i) => i.product_id), ...cleanItems.map((i) => i.product_id)])];
-      const prodsRes = await client.query(
-        `SELECT id, name, current_stock FROM products WHERE id = ANY($1::int[]) FOR UPDATE`,
-        [productIds]
-      );
-      if (prodsRes.rowCount !== productIds.length) throw new Error('Có sản phẩm không tồn tại.');
-
-      for (const oldItem of oldItems) {
-        const prod = prodsRes.rows.find((p) => p.id === oldItem.product_id);
-        if (toInt(prod.current_stock) < toInt(oldItem.quantity)) {
-          throw new Error(`Không thể sửa phiếu nhập vì tồn kho hiện tại của "${prod.name}" không đủ để hoàn tác.`);
-        }
+      for (const item of existing.items) {
+        await client.query(`UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`, [item.quantity, item.product_id]);
       }
-
-      for (const oldItem of oldItems) {
-        const prod = prodsRes.rows.find((p) => p.id === oldItem.product_id);
-        await client.query(
-          `UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`,
-          [oldItem.quantity, oldItem.product_id]
-        );
-        await addStockMovement(client, {
-          product_id: oldItem.product_id,
-          quantity_delta: -toInt(oldItem.quantity),
-          ref_type: 'import_revert',
-          ref_id: id,
-          note: `Hoàn tác phiếu nhập: ${prod.name}`,
-        });
-      }
-
-      await client.query(
-        `UPDATE imports SET supplier_id = $1, total_quantity = $2, note = $3 WHERE id = $4`,
-        [supplier_id, cleanItems.reduce((s, i) => s + i.quantity, 0), note || '', id]
-      );
-      await client.query(`DELETE FROM import_items WHERE import_id = $1`, [id]);
-
-      for (const item of cleanItems) {
-        const prod = prodsRes.rows.find((p) => p.id === item.product_id);
-        await client.query(
-          `INSERT INTO import_items (import_id, product_id, quantity) VALUES ($1, $2, $3)`,
-          [id, item.product_id, item.quantity]
-        );
-        await client.query(
-          `UPDATE products SET current_stock = current_stock + $1, updated_at = NOW() WHERE id = $2`,
-          [item.quantity, item.product_id]
-        );
-        await addStockMovement(client, {
-          product_id: item.product_id,
-          quantity_delta: item.quantity,
-          ref_type: 'import',
-          ref_id: id,
-          note: `Cập nhật phiếu nhập: ${prod.name}`,
-        });
-      }
-    });
-
-    const updated = await fetchImportById(id);
-    res.json({ success: true, import: updated });
-  } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
-  }
-});
-
-app.delete('/api/imports/:id', authRequired, async (req, res) => {
-  try {
-    const id = toInt(req.params.id);
-    await withTx(async (client) => {
-      const currentImportRes = await client.query(
-        `SELECT id FROM imports WHERE id = $1 FOR UPDATE`,
-        [id]
-      );
-      if (!currentImportRes.rowCount) throw new Error('Không tìm thấy phiếu nhập.');
-
-      const oldItemsRes = await client.query(
-        `SELECT ii.id, ii.product_id, ii.quantity, p.name
-         FROM import_items ii
-         JOIN products p ON p.id = ii.product_id
-         WHERE ii.import_id = $1
-         ORDER BY ii.id`,
-        [id]
-      );
-      const oldItems = oldItemsRes.rows;
-
-      const productIds = [...new Set(oldItems.map((i) => i.product_id))];
-      const prodsRes = await client.query(
-        `SELECT id, name, current_stock FROM products WHERE id = ANY($1::int[]) FOR UPDATE`,
-        [productIds]
-      );
-      if (prodsRes.rowCount !== productIds.length) throw new Error('Có sản phẩm không tồn tại.');
-
-      for (const oldItem of oldItems) {
-        const prod = prodsRes.rows.find((p) => p.id === oldItem.product_id);
-        if (toInt(prod.current_stock) < toInt(oldItem.quantity)) {
-          throw new Error(`Không thể xóa phiếu nhập vì tồn kho hiện tại của "${prod.name}" không đủ để hoàn tác.`);
-        }
-      }
-
-      for (const oldItem of oldItems) {
-        const prod = prodsRes.rows.find((p) => p.id === oldItem.product_id);
-        await client.query(
-          `UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`,
-          [oldItem.quantity, oldItem.product_id]
-        );
-        await addStockMovement(client, {
-          product_id: oldItem.product_id,
-          quantity_delta: -toInt(oldItem.quantity),
-          ref_type: 'import_revert',
-          ref_id: id,
-          note: `Xóa phiếu nhập: ${prod.name}`,
-        });
-      }
-
-      await client.query(`DELETE FROM import_items WHERE import_id = $1`, [id]);
       await client.query(`DELETE FROM imports WHERE id = $1`, [id]);
+      await logAction(client, {
+        action: 'DELETE',
+        entity_type: 'imports',
+        entity_id: id,
+        old_data: existing,
+        new_data: null,
+        actor_id: req.session.user.id,
+      });
     });
-
     res.json({ success: true });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
-  }
-});
-app.get('/api/orders', authRequired, async (req, res) => {
-  try {
-    const orders = await fetchOrders({ status: req.query.status });
-    res.json({ success: true, orders });
-  } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể xóa phiếu nhập.' });
   }
 });
 
-app.get('/api/orders/:id', authRequired, async (req, res) => {
+/* ORDERS */
+app.get('/api/orders', requireAuth, async (req, res) => {
   try {
-    const id = toInt(req.params.id);
-    const orderRes = await query(
-      `
-      SELECT o.id, o.order_code, o.customer_id, o.customer_name, o.customer_phone, o.customer_address,
-             o.total_amount::float AS total_amount, o.is_paid, o.created_by, o.created_at,
-             c.name AS customer_db_name, c.phone AS customer_db_phone, c.address AS customer_db_address,
-             COALESCE(json_agg(
-               json_build_object(
-                 'product_id', oi.product_id,
-                 'product_name', oi.product_name_snapshot,
-                 'quantity', oi.quantity,
-                 'unit_price', oi.unit_price::float,
-                 'line_total', oi.line_total::float
-               ) ORDER BY oi.id
-             ) FILTER (WHERE oi.id IS NOT NULL), '[]') AS items
-      FROM orders o
-      LEFT JOIN customers c ON c.id = o.customer_id
-      LEFT JOIN order_items oi ON oi.order_id = o.id
-      WHERE o.id = $1
-      GROUP BY o.id, c.name, c.phone, c.address
-      `,
-      [id]
+    res.json({ success: true, data: await listOrders({ status: req.query.status, from: req.query.from, to: req.query.to }) });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Không thể tải hóa đơn.' });
+  }
+});
+
+app.get('/api/orders/:id', requireAuth, async (req, res) => {
+  try {
+    const order = await loadOrderById(pool, i(req.params.id));
+    if (!order) return res.status(404).json({ success: false, message: 'Hóa đơn không tồn tại.' });
+    res.json({ success: true, data: order });
+  } catch (error) {
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Không thể tải hóa đơn.' });
+  }
+});
+
+app.post('/api/orders', requireAuth, async (req, res) => {
+  try {
+    const id = await withTx((client) => createOrUpdateOrder(client, req.body || {}, null, req.session.user.id));
+    const order = await loadOrderById(pool, id);
+    res.json({ success: true, data: order });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể tạo hóa đơn.' });
+  }
+});
+
+app.put('/api/orders/:id', requireAuth, async (req, res) => {
+  try {
+    const id = i(req.params.id);
+    const existing = await loadOrderById(pool, id);
+    if (!existing) throw new Error('Hóa đơn không tồn tại.');
+    await withTx((client) => createOrUpdateOrder(client, req.body || {}, existing, req.session.user.id));
+    const order = await loadOrderById(pool, id);
+    res.json({ success: true, data: order });
+  } catch (error) {
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể cập nhật hóa đơn.' });
+  }
+});
+
+app.put('/api/orders/:id/pay', requireAuth, async (req, res) => {
+  try {
+    const id = i(req.params.id);
+    const isPaid = req.body && typeof req.body.is_paid !== 'undefined' ? Boolean(req.body.is_paid) : true;
+    const old = await loadOrderById(pool, id);
+    if (!old) throw new Error('Hóa đơn không tồn tại.');
+    await q(`UPDATE orders SET is_paid = $1, updated_at = NOW() WHERE id = $2`, [isPaid, id]);
+    await q(
+      `INSERT INTO audit_logs (action, entity_type, entity_id, old_data, new_data, actor_id)
+       VALUES ('UPDATE','orders',$1,$2,$3,$4)`,
+      [id, old, { ...old, is_paid: isPaid }, req.session.user.id]
     );
-    if (!orderRes.rowCount) return res.status(404).json({ success: false, message: 'Không tìm thấy hóa đơn.' });
-    res.json({ success: true, order: orderRes.rows[0] });
+    const order = await loadOrderById(pool, id);
+    res.json({ success: true, data: order });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể cập nhật thanh toán.' });
   }
 });
 
-app.post('/api/orders', authRequired, async (req, res) => {
+app.delete('/api/orders/:id', requireAuth, async (req, res) => {
   try {
-    let {
-      customer_id = null,
-      customer_name = '',
-      customer_phone = '',
-      customer_address = '',
-      items = [],
-    } = req.body;
-
-    const cleanItems = normalizeOrderItems(items).map((item) => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      unit_price: item.unit_price || 0,
-    }));
-
-    if (cleanItems.length === 0) {
-      return res.status(400).json({ success: false, message: 'Vui lòng thêm ít nhất 1 sản phẩm.' });
-    }
-
-    const order = await withTx(async (client) => {
-      const customer = await resolveOrderCustomer(client, customer_id, customer_name, customer_phone, customer_address);
-
-      const productIds = [...new Set(cleanItems.map((i) => i.product_id))];
-      const productsRes = await client.query(
-        `SELECT id, code, name, sale_price::float AS sale_price, current_stock
-         FROM products
-         WHERE id = ANY($1::int[])
-         FOR UPDATE`,
-        [productIds]
-      );
-      if (productsRes.rowCount !== productIds.length) throw new Error('Có sản phẩm không tồn tại.');
-
-      for (const item of cleanItems) {
-        const prod = productsRes.rows.find((p) => p.id === item.product_id);
-        if (prod.current_stock < item.quantity) {
-          throw new Error(`Sản phẩm "${prod.name}" không đủ tồn kho.`);
-        }
-      }
-
-      const orderCode = createSlugCode('DH-');
-      const totalAmount = cleanItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-
-      const orderRes = await client.query(
-        `INSERT INTO orders (order_code, customer_id, customer_name, customer_phone, customer_address, total_amount, is_paid, created_by)
-         VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-         RETURNING *`,
-        [
-          orderCode,
-          customer.customer_id,
-          customer.customer_name,
-          customer.customer_phone,
-          customer.customer_address,
-          totalAmount,
-          false,
-          req.session.user.id,
-        ]
-      );
-      const createdOrder = orderRes.rows[0];
-
-      for (const item of cleanItems) {
-        const prod = productsRes.rows.find((p) => p.id === item.product_id);
-        const lineTotal = item.quantity * item.unit_price;
-        await client.query(
-          `INSERT INTO order_items (order_id, product_id, product_name_snapshot, quantity, unit_price, line_total)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [createdOrder.id, item.product_id, prod.name, item.quantity, item.unit_price, lineTotal]
-        );
-        await client.query(
-          `UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`,
-          [item.quantity, item.product_id]
-        );
-        await addStockMovement(client, {
-          product_id: item.product_id,
-          quantity_delta: -item.quantity,
-          ref_type: 'order',
-          ref_id: createdOrder.id,
-          note: `Bán hàng: ${createdOrder.order_code}`,
-        });
-      }
-
-      return createdOrder;
-    });
-
-    const detail = await query(`SELECT * FROM orders WHERE id = $1`, [order.id]);
-    res.json({ success: true, order: detail.rows[0] });
-  } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
-  }
-});
-
-app.put('/api/orders/:id', authRequired, async (req, res) => {
-  try {
-    const id = toInt(req.params.id);
-    let {
-      customer_id = null,
-      customer_name = '',
-      customer_phone = '',
-      customer_address = '',
-      items = [],
-    } = req.body;
-
-    const cleanItems = normalizeOrderItems(items).map((item) => ({
-      product_id: item.product_id,
-      quantity: item.quantity,
-      unit_price: item.unit_price || 0,
-    }));
-
-    if (cleanItems.length === 0) {
-      return res.status(400).json({ success: false, message: 'Vui lòng thêm ít nhất 1 sản phẩm.' });
-    }
-
+    const id = i(req.params.id);
+    const existing = await loadOrderById(pool, id);
+    if (!existing) throw new Error('Hóa đơn không tồn tại.');
     await withTx(async (client) => {
-      const currentOrderRes = await client.query(
-        `SELECT id, order_code, customer_id, customer_name, customer_phone, customer_address, total_amount, is_paid
-         FROM orders
-         WHERE id = $1
-         FOR UPDATE`,
-        [id]
-      );
-      if (!currentOrderRes.rowCount) throw new Error('Không tìm thấy hóa đơn.');
-      const currentOrder = currentOrderRes.rows[0];
-
-      const oldItemsRes = await client.query(
-        `SELECT id, product_id, quantity, unit_price, product_name_snapshot
-         FROM order_items
-         WHERE order_id = $1
-         ORDER BY id`,
-        [id]
-      );
-      const oldItems = oldItemsRes.rows;
-
-      const customer = await resolveOrderCustomer(client, customer_id, customer_name, customer_phone, customer_address);
-
-      const productIds = [...new Set([
-        ...oldItems.map((i) => i.product_id),
-        ...cleanItems.map((i) => i.product_id),
-      ])];
-
-      const productsRes = await client.query(
-        `SELECT id, name, current_stock
-         FROM products
-         WHERE id = ANY($1::int[])
-         FOR UPDATE`,
-        [productIds]
-      );
-      if (productsRes.rowCount !== productIds.length) throw new Error('Có sản phẩm không tồn tại.');
-
-      // Hoàn tác hóa đơn cũ để trả tồn kho về trạng thái trước khi cập nhật
-      for (const oldItem of oldItems) {
-        const prod = productsRes.rows.find((p) => p.id === oldItem.product_id);
-        await client.query(
-          `UPDATE products SET current_stock = current_stock + $1, updated_at = NOW() WHERE id = $2`,
-          [oldItem.quantity, oldItem.product_id]
-        );
-        await addStockMovement(client, {
-          product_id: oldItem.product_id,
-          quantity_delta: toInt(oldItem.quantity),
-          ref_type: 'order_revert',
-          ref_id: id,
-          note: `Hoàn tác hóa đơn: ${currentOrder.order_code} - ${prod.name}`,
-        });
+      for (const item of existing.items) {
+        await client.query(`UPDATE products SET current_stock = current_stock + $1, updated_at = NOW() WHERE id = $2`, [item.quantity, item.product_id]);
       }
-
-      for (const item of cleanItems) {
-        const prod = productsRes.rows.find((p) => p.id === item.product_id);
-        if (toInt(prod.current_stock) < item.quantity) {
-          throw new Error(`Sản phẩm "${prod.name}" không đủ tồn kho.`);
-        }
-      }
-
-      const totalAmount = cleanItems.reduce((sum, item) => sum + item.quantity * item.unit_price, 0);
-
-      await client.query(
-        `UPDATE orders
-         SET customer_id = $1,
-             customer_name = $2,
-             customer_phone = $3,
-             customer_address = $4,
-             total_amount = $5,
-             updated_at = NOW()
-         WHERE id = $6`,
-        [
-          customer.customer_id,
-          customer.customer_name,
-          customer.customer_phone,
-          customer.customer_address,
-          totalAmount,
-          id,
-        ]
-      );
-
-      await client.query(`DELETE FROM order_items WHERE order_id = $1`, [id]);
-
-      for (const item of cleanItems) {
-        const prod = productsRes.rows.find((p) => p.id === item.product_id);
-        const lineTotal = item.quantity * item.unit_price;
-        await client.query(
-          `INSERT INTO order_items (order_id, product_id, product_name_snapshot, quantity, unit_price, line_total)
-           VALUES ($1, $2, $3, $4, $5, $6)`,
-          [id, item.product_id, prod.name, item.quantity, item.unit_price, lineTotal]
-        );
-        await client.query(
-          `UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`,
-          [item.quantity, item.product_id]
-        );
-        await addStockMovement(client, {
-          product_id: item.product_id,
-          quantity_delta: -item.quantity,
-          ref_type: 'order_update',
-          ref_id: id,
-          note: `Cập nhật hóa đơn: ${currentOrder.order_code}`,
-        });
-      }
-
-      if (currentOrder.is_paid) {
-        await client.query(`UPDATE orders SET is_paid = TRUE WHERE id = $1`, [id]);
-      }
+      await client.query(`DELETE FROM orders WHERE id = $1`, [id]);
+      await logAction(client, {
+        action: 'DELETE',
+        entity_type: 'orders',
+        entity_id: id,
+        old_data: existing,
+        new_data: null,
+        actor_id: req.session.user.id,
+      });
     });
-
-    const detail = await query(`SELECT * FROM orders WHERE id = $1`, [id]);
-    res.json({ success: true, order: detail.rows[0] });
+    res.json({ success: true });
   } catch (error) {
-    res.status(400).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể xóa hóa đơn.' });
   }
 });
 
-app.put('/api/orders/:id/pay', authRequired, async (req, res) => {
+/* REPORTS */
+app.get('/api/reports/monthly', requireAuth, async (req, res) => {
   try {
-    const id = toInt(req.params.id);
-    const current = await query('SELECT id, is_paid FROM orders WHERE id = $1', [id]);
-    if (!current.rowCount) return res.status(404).json({ success: false, message: 'Không tìm thấy hóa đơn.' });
-    const r = await query('UPDATE orders SET is_paid = TRUE WHERE id = $1 RETURNING *', [id]);
-    res.json({ success: true, order: r.rows[0] });
+    const report = await getMonthlyReport(req.query.month, req.query.year);
+    res.json({ success: true, data: report });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể tải báo cáo.' });
   }
 });
 
-app.get('/api/reports/monthly', authRequired, async (req, res) => {
+app.get('/api/reports/products', requireAuth, async (req, res) => {
   try {
-    const month = toInt(req.query.month || new Date().getMonth() + 1);
-    const year = toInt(req.query.year || new Date().getFullYear());
-    const { start, end } = monthBounds(month, year);
-
-    const orders = await query(
-      `SELECT COUNT(*)::int AS total_orders,
-              COALESCE(SUM(total_amount), 0)::float AS total_revenue,
-              COALESCE(SUM(CASE WHEN is_paid THEN total_amount ELSE 0 END), 0)::float AS total_paid,
-              COALESCE(SUM(CASE WHEN is_paid THEN 0 ELSE total_amount END), 0)::float AS total_unpaid
-       FROM orders
-       WHERE created_at >= $1 AND created_at < $2`,
-      [start, end]
-    );
-
-    const imports = await query(
-      `
-      SELECT COALESCE(SUM(ii.quantity), 0)::int AS total_import_quantity
-      FROM imports i
-      LEFT JOIN import_items ii ON ii.import_id = i.id
-      WHERE i.created_at >= $1 AND i.created_at < $2
-      `,
-      [start, end]
-    );
-
-    const sold = await query(
-      `
-      SELECT COALESCE(SUM(oi.quantity), 0)::int AS total_sold_quantity
-      FROM orders o
-      LEFT JOIN order_items oi ON oi.order_id = o.id
-      WHERE o.created_at >= $1 AND o.created_at < $2
-      `,
-      [start, end]
-    );
-
-    const endStock = await query(
-      `
-      WITH stock AS (
-        SELECT product_id, COALESCE(SUM(quantity_delta), 0)::int AS stock
-        FROM stock_movements
-        WHERE created_at < $1
-        GROUP BY product_id
-      )
-      SELECT COALESCE(SUM(stock), 0)::int AS ending_stock
-      FROM stock
-      `,
-      [end]
-    );
-
+    const report = await getMonthlyReport(req.query.month, req.query.year);
     res.json({
       success: true,
-      month,
-      year,
-      report: {
-        total_orders: toInt(orders.rows[0].total_orders),
-        total_revenue: toFloat(orders.rows[0].total_revenue),
-        total_paid: toFloat(orders.rows[0].total_paid),
-        total_unpaid: toFloat(orders.rows[0].total_unpaid),
-        total_import_quantity: toInt(imports.rows[0].total_import_quantity),
-        total_sold_quantity: toInt(sold.rows[0].total_sold_quantity),
-        ending_stock: toInt(endStock.rows[0].ending_stock),
+      data: {
+        month: report.month,
+        year: report.year,
+        month_label: report.month_label,
+        top_sold: report.top_sold,
+        top_stock: report.top_stock,
+        by_product: report.by_product,
       },
     });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể tải thống kê sản phẩm.' });
   }
 });
 
-app.get('/api/reports/products', authRequired, async (req, res) => {
+app.get('/api/reports/monthly/pdf', requireAuth, async (req, res) => {
   try {
-    const month = toInt(req.query.month || new Date().getMonth() + 1);
-    const year = toInt(req.query.year || new Date().getFullYear());
-    const { start, end } = monthBounds(month, year);
-
-    const rows = await query(
-      `
-      WITH sold AS (
-        SELECT oi.product_id, SUM(oi.quantity)::int AS sold_quantity
-        FROM order_items oi
-        JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= $1 AND o.created_at < $2
-        GROUP BY oi.product_id
-      ),
-      stock AS (
-        SELECT sm.product_id, COALESCE(SUM(sm.quantity_delta), 0)::int AS ending_stock
-        FROM stock_movements sm
-        WHERE sm.created_at < $2
-        GROUP BY sm.product_id
-      )
-      SELECT p.id, p.code, p.name, COALESCE(sold.sold_quantity, 0)::int AS sold_quantity,
-             COALESCE(stock.ending_stock, 0)::int AS ending_stock
-      FROM products p
-      LEFT JOIN sold ON sold.product_id = p.id
-      LEFT JOIN stock ON stock.product_id = p.id
-      ORDER BY sold_quantity DESC, ending_stock DESC, p.name ASC
-      `,
-      [start, end]
-    );
-
-    const topSelling = rows.rows.reduce(
-      (best, row) => (row.sold_quantity > (best?.sold_quantity || 0) ? row : best),
-      null
-    );
-    const topStock = rows.rows.reduce(
-      (best, row) => (row.ending_stock > (best?.ending_stock || 0) ? row : best),
-      null
-    );
-
-    res.json({
-      success: true,
-      month,
-      year,
-      top_selling: topSelling,
-      top_stock: topStock,
-      items: rows.rows,
-    });
+    const report = await getMonthlyReport(req.query.month, req.query.year);
+    sendMonthlyPdf(res, report);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể xuất PDF.' });
   }
 });
 
-function buildPdfResponse(res, filename) {
-  res.setHeader('Content-Type', 'application/pdf');
-  res.setHeader('Content-Disposition', `attachment; filename="${filename}"`);
-  const doc = new PDFDocument({ size: 'A4', margin: 40, bufferPages: true });
-  doc.pipe(res);
-  return doc;
-}
-
-function pdfHeader(doc, title, subtitle = '') {
-  doc.font('Helvetica-Bold').fontSize(18).fillColor('#2f2a35').text(title, { align: 'left' });
-  if (subtitle) {
-    doc.moveDown(0.3);
-    doc.font('Helvetica').fontSize(10).fillColor('#7c7284').text(subtitle);
-  }
-  doc.moveDown(0.6);
-}
-
-function pdfSection(doc, title) {
-  doc.moveDown(0.4);
-  doc.font('Helvetica-Bold').fontSize(12).fillColor('#a14b83').text(title);
-  doc.moveDown(0.3);
-}
-
-function pdfStatBlock(doc, label, value, x, y, width) {
-  doc.save();
-  doc.roundedRect(x, y, width, 48, 10).fillAndStroke('#fff7fb', '#eadcea');
-  doc.fillColor('#7c7284').font('Helvetica').fontSize(9).text(label, x + 10, y + 8, { width: width - 20 });
-  doc.fillColor('#2f2a35').font('Helvetica-Bold').fontSize(12).text(value, x + 10, y + 22, { width: width - 20 });
-  doc.restore();
-}
-
-function drawPdfTable(doc, columns, rows, startY = doc.y, rowHeight = 22) {
-  const pageWidth = doc.page.width - doc.page.margins.left - doc.page.margins.right;
-  const totalWidth = columns.reduce((sum, c) => sum + c.width, 0);
-  const scale = totalWidth > pageWidth ? pageWidth / totalWidth : 1;
-  const widths = columns.map((c) => c.width * scale);
-  let y = startY;
-  const x0 = doc.page.margins.left;
-  const bottom = doc.page.height - doc.page.margins.bottom;
-
-  const drawHeader = () => {
-    let x = x0;
-    doc.font('Helvetica-Bold').fontSize(9).fillColor('#7c7284');
-    columns.forEach((col, idx) => {
-      doc.rect(x, y, widths[idx], 22).fillAndStroke('#fde9f4', '#eadcea');
-      doc.fillColor('#805f74').text(col.label, x + 6, y + 6, { width: widths[idx] - 12, align: col.align || 'left' });
-      x += widths[idx];
-    });
-    y += 22;
-  };
-
-  drawHeader();
-
-  rows.forEach((row) => {
-    const rowHeights = columns.map((col, idx) => {
-      const text = escapePdfText(row[idx]);
-      return Math.max(rowHeight, doc.heightOfString(text, { width: widths[idx] - 12, fontSize: 9 }) + 10);
-    });
-    const h = Math.max(...rowHeights);
-    if (y + h > bottom) {
-      doc.addPage();
-      y = doc.page.margins.top;
-      drawHeader();
-    }
-    let x = x0;
-    columns.forEach((col, idx) => {
-      doc.rect(x, y, widths[idx], h).stroke('#eadcea');
-      doc.fillColor('#2f2a35').font('Helvetica').fontSize(9).text(escapePdfText(row[idx]), x + 6, y + 5, {
-        width: widths[idx] - 12,
-        align: col.align || 'left',
-      });
-      x += widths[idx];
-    });
-    y += h;
-  });
-
-  doc.moveDown(1);
-  return y;
-}
-
-app.get('/api/reports/monthly/pdf', authRequired, async (req, res) => {
+app.get('/api/reports/summary/pdf', requireAuth, async (req, res) => {
   try {
-    const month = toInt(req.query.month || new Date().getMonth() + 1);
-    const year = toInt(req.query.year || new Date().getFullYear());
-    const { start, end } = monthBounds(month, year);
-    const reportRes = await query(
-      `SELECT COUNT(*)::int AS total_orders,
-              COALESCE(SUM(total_amount), 0)::float AS total_revenue,
-              COALESCE(SUM(CASE WHEN is_paid THEN total_amount ELSE 0 END), 0)::float AS total_paid,
-              COALESCE(SUM(CASE WHEN is_paid THEN 0 ELSE total_amount END), 0)::float AS total_unpaid
-       FROM orders
-       WHERE created_at >= $1 AND created_at < $2`,
-      [start, end]
-    );
-    const importRes = await query(
-      `SELECT COALESCE(SUM(ii.quantity), 0)::int AS total_import_quantity
-       FROM imports i
-       LEFT JOIN import_items ii ON ii.import_id = i.id
-       WHERE i.created_at >= $1 AND i.created_at < $2`,
-      [start, end]
-    );
-    const soldRes = await query(
-      `SELECT COALESCE(SUM(oi.quantity), 0)::int AS total_sold_quantity
-       FROM orders o
-       LEFT JOIN order_items oi ON oi.order_id = o.id
-       WHERE o.created_at >= $1 AND o.created_at < $2`,
-      [start, end]
-    );
-    const stockRes = await query(
-      `WITH stock AS (
-        SELECT product_id, COALESCE(SUM(quantity_delta), 0)::int AS stock
-        FROM stock_movements
-        WHERE created_at < $1
-        GROUP BY product_id
-      )
-      SELECT COALESCE(SUM(stock), 0)::int AS ending_stock
-      FROM stock`,
-      [end]
-    );
-    const products = await query(
-      `
-      WITH sold AS (
-        SELECT oi.product_id, SUM(oi.quantity)::int AS sold_quantity
-        FROM order_items oi
-        JOIN orders o ON o.id = oi.order_id
-        WHERE o.created_at >= $1 AND o.created_at < $2
-        GROUP BY oi.product_id
-      ),
-      stock AS (
-        SELECT sm.product_id, COALESCE(SUM(sm.quantity_delta), 0)::int AS ending_stock
-        FROM stock_movements sm
-        WHERE sm.created_at < $2
-        GROUP BY sm.product_id
-      )
-      SELECT p.code, p.name, COALESCE(sold.sold_quantity, 0)::int AS sold_quantity,
-             COALESCE(stock.ending_stock, 0)::int AS ending_stock
-      FROM products p
-      LEFT JOIN sold ON sold.product_id = p.id
-      LEFT JOIN stock ON stock.product_id = p.id
-      ORDER BY sold_quantity DESC, ending_stock DESC, p.name ASC
-      `,
-      [start, end]
-    );
-
-    const doc = buildPdfResponse(res, `bao-cao-thang-${pad2(month)}-${year}.pdf`);
-    pdfHeader(doc, `Báo cáo tháng ${pad2(month)}/${year}`, 'Dữ liệu tổng hợp từ Neon PostgreSQL');
-
-    const s = reportRes.rows[0];
-    const stats = [
-      ['Tổng đơn hàng', String(toInt(s.total_orders))],
-      ['Doanh thu', formatVnd(s.total_revenue)],
-      ['Đã thu', formatVnd(s.total_paid)],
-      ['Chưa thu', formatVnd(s.total_unpaid)],
-      ['Tổng nhập kho', String(toInt(importRes.rows[0].total_import_quantity))],
-      ['Tổng bán ra', String(toInt(soldRes.rows[0].total_sold_quantity))],
-      ['Tồn cuối tháng', String(toInt(stockRes.rows[0].ending_stock))],
-    ];
-    const statW = 160;
-    const statStartY = doc.y;
-    stats.forEach((item, idx) => {
-      const x = doc.page.margins.left + (idx % 2) * (statW + 20);
-      const y = statStartY + Math.floor(idx / 2) * 60;
-      pdfStatBlock(doc, item[0], item[1], x, y, statW);
-    });
-    doc.y = statStartY + Math.ceil(stats.length / 2) * 60 + 18;
-
-    pdfSection(doc, 'Thống kê theo sản phẩm');
-    drawPdfTable(doc, [
-      { label: 'Mã SP', width: 85 },
-      { label: 'Tên sản phẩm', width: 220 },
-      { label: 'Đã bán', width: 70, align: 'right' },
-      { label: 'Tồn cuối tháng', width: 90, align: 'right' },
-    ], products.rows.slice(0, 40).map((p) => [p.code, p.name, p.sold_quantity, p.ending_stock]));
-
-    doc.end();
+    const summary = await getSummaryReport();
+    sendSummaryPdf(res, summary);
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(400).json({ success: false, message: error.message || 'Không thể xuất PDF.' });
   }
 });
 
-app.get('/api/reports/summary/pdf', authRequired, async (req, res) => {
+/* LOGS */
+app.get('/api/logs', requireAuth, async (req, res) => {
   try {
-    const totalRevenueRes = await query(
-      `SELECT COUNT(*)::int AS total_orders,
-              COALESCE(SUM(total_amount), 0)::float AS total_revenue,
-              COALESCE(SUM(CASE WHEN is_paid THEN total_amount ELSE 0 END), 0)::float AS total_paid,
-              COALESCE(SUM(CASE WHEN is_paid THEN 0 ELSE total_amount END), 0)::float AS total_unpaid
-       FROM orders`
+    const limit = Math.max(1, Math.min(500, i(req.query.limit || 100)));
+    const { rows } = await q(
+      `SELECT l.*, u.full_name AS actor_name
+       FROM audit_logs l
+       LEFT JOIN users u ON u.id = l.actor_id
+       ORDER BY l.created_at DESC
+       LIMIT $1`,
+      [limit]
     );
-    const totalsRes = await query(
-      `SELECT COUNT(*)::int AS total_products,
-              COALESCE(SUM(current_stock), 0)::int AS total_stock
-       FROM products`
-    );
-    const byProduct = await query(
-      `SELECT code, name, current_stock
-       FROM products
-       ORDER BY current_stock DESC, name ASC`
-    );
-
-    const doc = buildPdfResponse(res, `tong-quan-kho-doanh-thu.pdf`);
-    pdfHeader(doc, 'Báo cáo tổng quan kho & doanh thu', 'Tổng hợp toàn bộ dữ liệu hiện có');
-
-    const s = totalRevenueRes.rows[0];
-    const t = totalsRes.rows[0];
-    const stats = [
-      ['Tổng đơn hàng', String(toInt(s.total_orders))],
-      ['Tổng doanh thu', formatVnd(s.total_revenue)],
-      ['Đã thu', formatVnd(s.total_paid)],
-      ['Chưa thu', formatVnd(s.total_unpaid)],
-      ['Tổng sản phẩm', String(toInt(t.total_products))],
-      ['Tổng tồn kho', String(toInt(t.total_stock))],
-    ];
-    const statStartY = doc.y;
-    stats.forEach((item, idx) => {
-      const x = doc.page.margins.left + (idx % 2) * 180;
-      const y = statStartY + Math.floor(idx / 2) * 60;
-      pdfStatBlock(doc, item[0], item[1], x, y, 160);
-    });
-    doc.y = statStartY + Math.ceil(stats.length / 2) * 60 + 18;
-
-    pdfSection(doc, 'Tồn kho theo sản phẩm');
-    drawPdfTable(doc, [
-      { label: 'Mã SP', width: 90 },
-      { label: 'Tên sản phẩm', width: 260 },
-      { label: 'Tồn hiện tại', width: 90, align: 'right' },
-    ], byProduct.rows.slice(0, 50).map((p) => [p.code, p.name, p.current_stock]));
-
-    doc.end();
+    res.json({ success: true, data: rows.map(rowLog) });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Không thể tải lịch sử.' });
   }
 });
 
-app.get('/api/dashboard/summary', authRequired, async (req, res) => {
+/* DASHBOARD */
+app.get('/api/dashboard', requireAuth, async (req, res) => {
   try {
-    const now = new Date();
-    const { start, end } = monthBounds(now.getUTCMonth() + 1, now.getUTCFullYear());
-    const reportRes = await fetchMonthlySummary(start, end);
-    res.json({ success: true, ...reportRes });
+    const data = await getDashboardData();
+    res.json({ success: true, data });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Không thể tải dashboard.' });
   }
 });
 
-async function fetchMonthlySummary(start, end) {
-  const orders = await query(
-    `SELECT COUNT(*)::int AS total_orders,
-            COALESCE(SUM(total_amount), 0)::float AS total_revenue,
-            COALESCE(SUM(CASE WHEN is_paid THEN total_amount ELSE 0 END), 0)::float AS total_paid,
-            COALESCE(SUM(CASE WHEN is_paid THEN 0 ELSE total_amount END), 0)::float AS total_unpaid
-     FROM orders WHERE created_at >= $1 AND created_at < $2`,
-    [start, end]
-  );
-  const products = await query(`SELECT COUNT(*)::int AS total_products, COALESCE(SUM(current_stock), 0)::int AS total_stock FROM products`);
-  const suppliers = await query(`SELECT COUNT(*)::int AS total_suppliers FROM suppliers`);
-  const customers = await query(`SELECT COUNT(*)::int AS total_customers FROM customers`);
-  const imports = await query(
-    `SELECT COALESCE(SUM(ii.quantity), 0)::int AS total_import_quantity
-     FROM imports i LEFT JOIN import_items ii ON ii.import_id = i.id
-     WHERE i.created_at >= $1 AND i.created_at < $2`,
-    [start, end]
-  );
-  const sold = await query(
-    `SELECT COALESCE(SUM(oi.quantity), 0)::int AS total_sold_quantity
-     FROM orders o LEFT JOIN order_items oi ON oi.order_id = o.id
-     WHERE o.created_at >= $1 AND o.created_at < $2`,
-    [start, end]
-  );
-
-  return {
-    summary: {
-      total_orders: toInt(orders.rows[0].total_orders),
-      total_revenue: toFloat(orders.rows[0].total_revenue),
-      total_paid: toFloat(orders.rows[0].total_paid),
-      total_unpaid: toFloat(orders.rows[0].total_unpaid),
-      total_products: toInt(products.rows[0].total_products),
-      total_stock: toInt(products.rows[0].total_stock),
-      total_suppliers: toInt(suppliers.rows[0].total_suppliers),
-      total_customers: toInt(customers.rows[0].total_customers),
-      total_import_quantity: toInt(imports.rows[0].total_import_quantity),
-      total_sold_quantity: toInt(sold.rows[0].total_sold_quantity),
-    },
-  };
-}
-
-app.get('/api/dashboard', authRequired, async (req, res) => {
+app.get('/api/reports/summary', requireAuth, async (req, res) => {
   try {
-    const now = new Date();
-    const report = await fetchMonthlySummary(
-      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1)),
-      new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 1))
-    );
-    const products = await query(
-      `SELECT id, code, name, sale_price::float AS sale_price, current_stock
-       FROM products ORDER BY current_stock DESC, name ASC LIMIT 5`
-    );
-    const invoices = await query(
-      `SELECT o.id, o.order_code, o.customer_name, o.total_amount::float AS total_amount, o.is_paid, o.created_at
-       FROM orders o ORDER BY o.created_at DESC LIMIT 5`
-    );
-    res.json({
-      success: true,
-      summary: report.summary,
-      latest_products: products.rows,
-      latest_orders: invoices.rows,
-    });
+    const data = await getSummaryReport();
+    res.json({ success: true, data });
   } catch (error) {
-    res.status(500).json({ success: false, message: error.message });
+    console.error(error);
+    res.status(500).json({ success: false, message: 'Không thể tải báo cáo tổng quan.' });
   }
 });
 
-app.get('*', (req, res) => {
-  res.sendFile(path.join(__dirname, 'public', 'index.html'));
-});
-
+/* START */
 async function start() {
   try {
     await ensureSchema();
+    const { rows } = await q(`SELECT COUNT(*)::int AS c FROM users`);
+    if (!rows.length) {
+      console.warn('Warning: no users table?');
+    }
     app.listen(PORT, () => {
-      console.log(`Server is running at http://localhost:${PORT}`);
+      console.log(`Server running at http://localhost:${PORT}`);
     });
   } catch (error) {
     console.error('Failed to start server:', error);
