@@ -974,3 +974,94 @@ body.global-picker-open {
     display:flex;
   align-items:end;
   align-self:stretch;}
+
+  /* ================= FIX LINE ITEM ROW (FINAL CLEAN) ================= */
+
+.line-item-row{
+  display: grid;
+  gap: 12px;
+  padding: 12px;
+  border: 1px solid #ecddea;
+  border-radius: 16px;
+  background: #fff;
+  margin-bottom: 12px;
+
+  /* QUAN TRỌNG */
+  align-items: start;
+}
+
+/* IMPORT: 3 cột chuẩn */
+.line-item-row.line-item-import{
+  grid-template-columns: 2fr 120px 100px;
+}
+
+/* ORDER: 4 cột chuẩn */
+.line-item-row.line-item-order{
+  grid-template-columns: 2fr 120px 130px 100px;
+}
+
+/* ===== PRODUCT ===== */
+.line-item-product-body{
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+
+.line-item-product .product-picker-display{
+  min-height: 48px;
+  border-radius: 14px;
+  font-weight: 600;
+}
+
+/* tồn kho */
+.line-item-product .row-note{
+  font-size: 12px;
+  color: #8d7d8d;
+  margin-top: 2px;
+}
+
+/* ===== INPUT ===== */
+.line-item-qty input,
+.line-item-price input{
+  min-height: 48px;
+  border-radius: 14px;
+  text-align: center;
+  font-weight: 600;
+}
+
+/* ===== ACTION BUTTON ===== */
+.line-item-actions{
+  display: flex;
+  align-items: center;   /* FIX LỆCH */
+  justify-content: flex-end;
+}
+
+/* nút xóa gọn lại */
+.line-item-actions .btn{
+  min-height: 42px;
+  padding: 6px 10px;
+  width: auto; /* bỏ w-100 effect */
+}
+
+/* ===== LABEL ===== */
+.line-item-cell .form-label{
+  margin-bottom: 4px;
+  font-size: 13px;
+}
+
+/* ===== HOVER (cho đẹp hơn) ===== */
+.line-item-row:hover{
+  background: #fff7fb;
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 991px){
+  .line-item-row.line-item-import,
+  .line-item-row.line-item-order{
+    grid-template-columns: 1fr;
+  }
+
+  .line-item-actions{
+    justify-content: flex-end;
+  }
+}
