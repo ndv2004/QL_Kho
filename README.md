@@ -1,20 +1,34 @@
-# QL Kho / Bán hàng
+# QL Kho - bản cập nhật mới
 
-## Chạy nhanh
-1. `npm install`
-2. Tạo `.env` từ `.env.example`
-3. `npm run seed`
-4. `npm start`
+## Chạy dự án
+```bash
+npm install
+node server.js
+```
+
+## Seed dữ liệu
+```bash
+node seed.js --reset
+```
+
+Hoặc:
+```bash
+npm run seed:reset
+```
 
 ## Tài khoản mẫu
-- `takhanhly / 22092006`
 - `admin / admin123`
+- `takhanhly / 22092006`
+- `nhanvien / 123456`
 
-## Dữ liệu seed
-- Toàn bộ sản phẩm được lấy từ file `Bảng báo giá(1).xlsx`
-- Nhà cung ứng: `Tạ Khánh Ly`
-- Ngày nhập khởi tạo: `31/03/2026`
+## Ghi chú
+- Dữ liệu seed được tạo từ file `Bảng báo giá(1).xlsx`
+- Toàn bộ tồn kho khởi tạo ngày `31/03/2026`
+- Seed sẽ xóa sạch dữ liệu cũ khi chạy với `--reset`
 
-## Lưu ý
-- Mã sản phẩm trong bảng báo giá có một số mã trùng giữa các dòng khác nhau, nên cơ sở dữ liệu đã được thiết kế để **không ép unique** lên `products.code`.
-- Seed sẽ xóa sạch dữ liệu hiện có rồi nạp lại theo workbook.
+
+## Phân quyền
+- `manager`: truy cập toàn bộ menu và thao tác đầy đủ
+- `staff`: chỉ thấy `Sản phẩm`, `Nhập kho`, `Bán hàng`, `Báo cáo`
+- Các API quản trị master data, hóa đơn, lịch sử được khóa ở backend
+- Tài khoản `takhanhly` hiện là `staff`

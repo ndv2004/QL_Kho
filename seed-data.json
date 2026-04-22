@@ -1,0 +1,2158 @@
+{
+  "meta": {
+    "source": "Bảng báo giá(3).xlsx",
+    "import_date": "2026-03-31"
+  },
+  "users": [
+    {
+      "username": "admin",
+      "password": "admin123",
+      "full_name": "Quản lý hệ thống",
+      "role": "manager"
+    },
+    {
+      "username": "takhanhly",
+      "password": "22092006",
+      "full_name": "Tạ Khánh Ly",
+      "role": "staff"
+    },
+    {
+      "username": "nhanvien",
+      "password": "123456",
+      "full_name": "Nhân viên demo",
+      "role": "staff"
+    }
+  ],
+  "suppliers": [
+    {
+      "name": "Tạ Khánh Ly",
+      "phone": "",
+      "address": ""
+    }
+  ],
+  "products": [
+    {
+      "category": "BÌA MÀU",
+      "code": "BA4XL",
+      "name": "Bìa A4 QV màu xanh lá",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 30800,
+      "stock": 82,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU",
+      "code": "BA4XB",
+      "name": "Bìa A4 QV màu xanh biển",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 30800,
+      "stock": 121,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU",
+      "code": "BA4V",
+      "name": "Bìa A4 QV màu vàng",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 30800,
+      "stock": 28,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU",
+      "code": "BA4H",
+      "name": "Bìa A4 QV màu hồng",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 30800,
+      "stock": 208,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU",
+      "code": "BA4",
+      "name": "Bìa A4 QV màu trắng",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 30800,
+      "stock": 46,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU",
+      "code": "BA3XL",
+      "name": "Bìa A3 QV xanh lá",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 61600,
+      "stock": 5,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU",
+      "code": "BA3XB",
+      "name": "Bìa A3 QV  xanh biển",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 61600,
+      "stock": 11,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU",
+      "code": "BA3H",
+      "name": "Bìa A3 QV  hồng",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 61600,
+      "stock": 1,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU",
+      "code": "BA3V",
+      "name": "Bìa A3 QVvàng",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 61600,
+      "stock": 1,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU",
+      "code": "BA3",
+      "name": "Bìa A3 QV trắng",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 61600,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4VC",
+      "name": "Bìa đặc biệt A4 màu vàng chanh",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 41,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4XN",
+      "name": "Bìa đặc biệt A4 màu xanh ngọc",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4VN",
+      "name": "Bìa đặc biệt A4 màu vàng nghệ",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 38,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4XV",
+      "name": "Bìa đặc biệt A4 màu xanh vẹt",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4ĐC",
+      "name": "Bìa đặc biệt A4 màu đỏ cờ",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 29,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4VK",
+      "name": "Bìa đặc biệt A4 màu vàng kim",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 27,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBATĐ",
+      "name": "Bìa đặc biệt A4 màu tím đậm",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBATN",
+      "name": "Bìa đặc biệt A4 màu tím nhạt",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4TH",
+      "name": "Bìa đặc biệt A4 màu tím huế",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 66000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4VKEM",
+      "name": "Bìa đặc biệt A4 màu vàng kem",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 14,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4",
+      "name": "Bìa đặc biệt A4 trộn 5 màu",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 283,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4TR",
+      "name": "Bìa đặc biệt A4 màu trắng - 180gsm",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 43000,
+      "stock": 65,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4Đ",
+      "name": "Bìa đặc biệt A4 màu Đen - 180gsm",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 68000,
+      "stock": 12,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4XNV",
+      "name": "Bìa đặc biệt A4 màu xanh Naviblu",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4N",
+      "name": "Bìa đặc biệt A4 màu nâu",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4",
+      "name": "Bìa đặc biệt A4 trộn 10 màu",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 149,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4XL",
+      "name": "Bìa đặc biệt A4 màu xanh lá",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 18,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA4XD",
+      "name": "Bìa đặc biệt A4 màu xanh dương",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 56000,
+      "stock": 19,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3VC",
+      "name": "Bìa đặc biệt A3 màu vàng chanh",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 6,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3XN",
+      "name": "Bìa đặc biệt A3 màu xanh ngọc",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3VN",
+      "name": "Bìa đặc biệt A3 màu vàng nghệ",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 3,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3XV",
+      "name": "Bìa đặc biệt A3 màu xanh vẹt",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3ĐC",
+      "name": "Bìa đặc biệt A3 màu đỏ cờ",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 8,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3VK",
+      "name": "Bìa đặc biệt A3 màu vàng kim",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 1,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBATĐ",
+      "name": "Bìa đặc biệt A3 màu tím đậm",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBATN",
+      "name": "Bìa đặc biệt A3 màu tím nhạt",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3TH",
+      "name": "Bìa đặc biệt A3 màu tím huế",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 132000,
+      "stock": 0,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3VKEM",
+      "name": "Bìa đặc biệt A3 màu vàng kem",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 1,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3",
+      "name": "Bìa đặc biệt A3 trộn 5 màu",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 8,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3TR",
+      "name": "Bìa đặc biệt A3 màu trắng - 180gsm",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 86000,
+      "stock": 15,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3Đ",
+      "name": "Bìa đặc biệt A3 màu Đen - 180gsm",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 136000,
+      "stock": 22,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3XNV",
+      "name": "Bìa đặc biệt A3 màu xanh Naviblu",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 1,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3N",
+      "name": "Bìa đặc biệt A3 màu nâu",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3",
+      "name": "Bìa đặc biệt A3 trộn 10 màu",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 2,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3XL",
+      "name": "Bìa đặc biệt A3 màu xanh lá",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 6,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA MÀU ĐẶC BIỆT",
+      "code": "BDBA3XD",
+      "name": "Bìa đặc biệt A3 màu xanh dương",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 116000,
+      "stock": 5,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA DẠ QUANG",
+      "code": "BDQA4Đ",
+      "name": "Bìa dạ quang A4 - màu Đỏ",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 65000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA DẠ QUANG",
+      "code": "BDQA4H",
+      "name": "Bìa dạ quang A4 - màu Hồng",
+      "unit": "tập",
+      "specification": "100 tờ/tập",
+      "price": 65000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA NHỰA",
+      "code": "BN0.35*A4",
+      "name": "Bìa nhựa sần 2 mặt 0.35li 297*210mm",
+      "unit": "tập",
+      "specification": "50 tờ/tập",
+      "price": 80000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PA4TR",
+      "name": "Photo A4 80 gsm- màu trắng",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 55000,
+      "stock": 29,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PA4XB",
+      "name": "Photo A4 80 gsm- màu xanh biển",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 74000,
+      "stock": 24,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PA4H",
+      "name": "Photo A4 80 gsm- màu hồng",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 74000,
+      "stock": 60,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PA4V",
+      "name": "Photo A4 80 gsm- màu vàng",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 74000,
+      "stock": 47,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PA4XL",
+      "name": "Photo A4 80 gsm- màu xanh lá",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 74000,
+      "stock": 47,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PA3V",
+      "name": "Photo A3 80 gsm vàng",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 148000,
+      "stock": 3,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PA3H",
+      "name": "Photo A3 80 gsm hồng",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 148000,
+      "stock": 7,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "MS033",
+      "name": "PHOTO A4 trộn 5 màu ĐẶC BIỆT",
+      "unit": "ream",
+      "specification": "250 tờ/ r",
+      "price": 65000,
+      "stock": 0,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PDBA4XL",
+      "name": "Photo màu A4 đặc biệt xanh lá",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 160000,
+      "stock": 0,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PDBA4XB",
+      "name": "Photo màu A4 đặc biệt xanh biển",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 160000,
+      "stock": 11,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PDBA4VC",
+      "name": "Photo màu A4 đặc biệt vàng chanh",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 160000,
+      "stock": 7,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PDBA4VN",
+      "name": "Photo màu A4 đặc biệt Vàng nghệ",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 160000,
+      "stock": 12,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PDBA4TD",
+      "name": "Photo màu A4 đặc biệt tím đậm",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 160000,
+      "stock": 0,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PDBA4D",
+      "name": "Photo màu A4 đặc biệt Đỏ cờ",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 160000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "PHOTO MÀU",
+      "code": "PDBA4VK",
+      "name": "Photo màu A4 đặc biệt Vàng kim",
+      "unit": "ream",
+      "specification": "500 tờ/ r",
+      "price": 160000,
+      "stock": 16,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "F5",
+      "name": "Chia file bìa 5 lá",
+      "unit": "bộ",
+      "specification": "",
+      "price": 3800,
+      "stock": 1007,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "F10",
+      "name": "Chia file bìa 10 lá",
+      "unit": "bộ",
+      "specification": "",
+      "price": 4800,
+      "stock": 1050,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "F12",
+      "name": "Chia file bìa 1-12 lá",
+      "unit": "bộ",
+      "specification": "",
+      "price": 8000,
+      "stock": 1039,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "F16",
+      "name": "Chia file bìa 1-16 lá",
+      "unit": "bộ",
+      "specification": "",
+      "price": 11500,
+      "stock": 13,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "F31",
+      "name": "Chia file bìa 1-31 lá",
+      "unit": "bộ",
+      "specification": "",
+      "price": 24300,
+      "stock": 36,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEAXB",
+      "name": "File lệch khổ A xanh biển",
+      "unit": "cái",
+      "specification": "",
+      "price": 3600,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEAXL",
+      "name": "File lệch khổ A xanh lá",
+      "unit": "cái",
+      "specification": "",
+      "price": 3600,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEAH",
+      "name": "File lệch khổ A hồng",
+      "unit": "cái",
+      "specification": "",
+      "price": 3600,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEAV",
+      "name": "File lệch khổ A vàng",
+      "unit": "cái",
+      "specification": "",
+      "price": 3600,
+      "stock": 1383,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEFXB",
+      "name": "File lệch khổ F xanh biển",
+      "unit": "cái",
+      "specification": "",
+      "price": 3600,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEFXL",
+      "name": "File lệch khổ F xanh lá",
+      "unit": "cái",
+      "specification": "",
+      "price": 3600,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEFH",
+      "name": "File lệch khổ F hồng",
+      "unit": "cái",
+      "specification": "",
+      "price": 3600,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEFV",
+      "name": "File lệch khổ F vàng",
+      "unit": "cái",
+      "specification": "",
+      "price": 3600,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEXB",
+      "name": "File 2 túi cạnh xanh biển",
+      "unit": "cái",
+      "specification": "",
+      "price": 5200,
+      "stock": 105,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEXL",
+      "name": "File 2 túi cạnh xanh lá",
+      "unit": "cái",
+      "specification": "",
+      "price": 5200,
+      "stock": 163,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEH",
+      "name": "File 2 túi cạnh hồng",
+      "unit": "cái",
+      "specification": "",
+      "price": 5200,
+      "stock": 135,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "FILE",
+      "code": "FILEV",
+      "name": "File 2 túi cạnh vàng",
+      "unit": "cái",
+      "specification": "",
+      "price": 5200,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ",
+      "code": "VVHSA4",
+      "name": "Vở vẽ keo gáy Sakura HS A4 20 tờ",
+      "unit": "quyển",
+      "specification": "20 tờ/q",
+      "price": 11300,
+      "stock": 592,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ",
+      "code": "VVA4",
+      "name": "Vở vẽ keo gáy Sakura A4 20 tờ",
+      "unit": "quyển",
+      "specification": "20 tờ/q",
+      "price": 11300,
+      "stock": 35,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ",
+      "code": "VVA3",
+      "name": "Vở vẽ keo gáy Sakura A3 20 tở",
+      "unit": "quyển",
+      "specification": "20 tờ/q",
+      "price": 22600,
+      "stock": 110,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO",
+      "code": "MS019",
+      "name": "Vở vẽ Sakura A6 - 50 tờ",
+      "unit": "quyển",
+      "specification": "50 tờ/q",
+      "price": 13500,
+      "stock": 599,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO",
+      "code": "MS011",
+      "name": "Vở vẽ Sakura A5 - 50 tờ",
+      "unit": "quyển",
+      "specification": "50 tờ/q",
+      "price": 17700,
+      "stock": 680,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO",
+      "code": "MS010",
+      "name": "Vở vẽ Sakura B5 - 50 tờ",
+      "unit": "quyển",
+      "specification": "50 tờ/q",
+      "price": 23000,
+      "stock": 297,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO",
+      "code": "MS009",
+      "name": "Vở vẽ Sakura A4 - 50 tờ",
+      "unit": "quyển",
+      "specification": "50 tờ/q",
+      "price": 28900,
+      "stock": 388,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO",
+      "code": "MS020",
+      "name": "Vở vẽ Sakura B4 - 50 tờ",
+      "unit": "quyển",
+      "specification": "50 tờ/q",
+      "price": 42800,
+      "stock": 143,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO",
+      "code": "MS021",
+      "name": "Vở vẽ Sakura A3 - 50 tờ",
+      "unit": "quyển",
+      "specification": "50 tờ/q",
+      "price": 51800,
+      "stock": 228,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO KRAFT",
+      "code": "MS025",
+      "name": "Vở vẽ Sakura Kraft B6 - 30 tờ",
+      "unit": "quyển",
+      "specification": "30 tờ/q",
+      "price": 9800,
+      "stock": 204,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO KRAFT",
+      "code": "MS026",
+      "name": "Vở vẽ Sakura Kraft A4 - 30 tờ",
+      "unit": "quyển",
+      "specification": "30 tờ/q",
+      "price": 23000,
+      "stock": 400,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO KRAFT",
+      "code": "MS027",
+      "name": "Vở vẽ Sakura Kraft B4 - 30 tờ",
+      "unit": "quyển",
+      "specification": "30 tờ/q",
+      "price": 34500,
+      "stock": 322,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO KRAFT",
+      "code": "MS029",
+      "name": "Vở vẽ Sakura Kraft A5 -30 tờ",
+      "unit": "quyển",
+      "specification": "30 tờ/q",
+      "price": 15000,
+      "stock": 680,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO KRAFT",
+      "code": "MS030",
+      "name": "Vở vẽ Sakura Kraft B5 -30 tờ",
+      "unit": "quyển",
+      "specification": "30 tờ/q",
+      "price": 19500,
+      "stock": 466,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ VẼ LÒ XO KRAFT",
+      "code": "MS031",
+      "name": "Vở vẽ Sakura Kraft A3 -30 tờ",
+      "unit": "quyển",
+      "specification": "30 tờ/q",
+      "price": 38500,
+      "stock": 175,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "GIẤY VẼ",
+      "code": "MS012",
+      "name": "Giấy vẽ A4 -20 tờ",
+      "unit": "tập",
+      "specification": "20 tờ/t",
+      "price": 8500,
+      "stock": 520,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "GIẤY VẼ",
+      "code": "MS013",
+      "name": "Giấy vẽ A3 -20 tờ",
+      "unit": "tập",
+      "specification": "20 tờ/t",
+      "price": 17000,
+      "stock": 141,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "GIẤY VẼ",
+      "code": "MS037",
+      "name": "Giấy vẽ A4 -15 tờ DL200",
+      "unit": "tập",
+      "specification": "15 tờ/t",
+      "price": 8500,
+      "stock": 214,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "GIẤY VẼ",
+      "code": "MS038",
+      "name": "Giấy vẽ A3 -15 tờ DL200",
+      "unit": "tập",
+      "specification": "15 tờ/t",
+      "price": 17000,
+      "stock": 75,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "GIẤY VẼ",
+      "code": "MS039",
+      "name": "Giấy vẽ A4 -20 tờ DL100",
+      "unit": "tập",
+      "specification": "20 tờ/t",
+      "price": 8000,
+      "stock": 458,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "GIẤY VẼ",
+      "code": "MS040",
+      "name": "Giấy vẽ A3 -20 tờ DL100",
+      "unit": "tập",
+      "specification": "20 tờ/t",
+      "price": 16000,
+      "stock": 424,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ LÒ XO",
+      "code": "MS014",
+      "name": "Sổ lò xo QV A6-200 trang",
+      "unit": "quyển",
+      "specification": "200t/q",
+      "price": 7500,
+      "stock": 237,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ LÒ XO",
+      "code": "MS015",
+      "name": "Sổ lò xo QV A5-200 trang",
+      "unit": "quyển",
+      "specification": "200t/q",
+      "price": 14300,
+      "stock": 69,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ LÒ XO",
+      "code": "MS016",
+      "name": "Sổ lò xo QV B5-200 trang",
+      "unit": "quyển",
+      "specification": "200t/q",
+      "price": 20900,
+      "stock": 318,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ LÒ XO",
+      "code": "MS017",
+      "name": "Sổ lò xo QV A4-200 trang",
+      "unit": "quyển",
+      "specification": "200t/q",
+      "price": 24000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ LÒ XO",
+      "code": "MS018",
+      "name": "Sổ lò xo QV A7-200 trang",
+      "unit": "quyển",
+      "specification": "200t/q",
+      "price": 4600,
+      "stock": 20,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ XÉ A4",
+      "code": "MS022",
+      "name": "Vở xé A4 - 12 tờ",
+      "unit": "quyển",
+      "specification": "12t/q",
+      "price": 2950,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "VỞ XÉ A4",
+      "code": "MS023",
+      "name": "Vở xé A4 - 25 tờ",
+      "unit": "quyển",
+      "specification": "25t/q",
+      "price": 4950,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA THƠM",
+      "code": "MS028",
+      "name": "Bìa vân thơm vàng",
+      "unit": "tập",
+      "specification": "",
+      "price": 64000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA THƠM",
+      "code": "MS028",
+      "name": "Bìa vân thơm xanh lá",
+      "unit": "tập",
+      "specification": "",
+      "price": 64000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA THƠM",
+      "code": "MS028",
+      "name": "Bìa vân thơm xanh biển",
+      "unit": "tập",
+      "specification": "",
+      "price": 64000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA THƠM",
+      "code": "MS028",
+      "name": "Bìa vân thơm hồng",
+      "unit": "tập",
+      "specification": "",
+      "price": 64000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA THƠM",
+      "code": "MS028",
+      "name": "Bìa vân thơm trắng",
+      "unit": "tập",
+      "specification": "",
+      "price": 64000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "BÌA THƠM",
+      "code": "MS028",
+      "name": "Bìa vân thơm xanh ngọc",
+      "unit": "tập",
+      "specification": "",
+      "price": 64000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS041",
+      "name": "Sổ vẽ Sakura Kraft đen ĐL130 A6 - 55 tờ",
+      "unit": "quyển",
+      "specification": "55 tờ/q",
+      "price": 8500,
+      "stock": 181,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS042",
+      "name": "Sổ vẽ Sakura Kraft đen ĐL130 A5 - 55 tờ",
+      "unit": "quyển",
+      "specification": "55 tờ/q",
+      "price": 14500,
+      "stock": 169,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS043",
+      "name": "Sổ vẽ Sakura Kraft đen ĐL130 A4 - 55 tờ",
+      "unit": "quyển",
+      "specification": "55 tờ/q",
+      "price": 25500,
+      "stock": 126,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS044",
+      "name": "Sổ vẽ Sakura Kraft nâu ĐL130 A6 - 55 tờ",
+      "unit": "quyển",
+      "specification": "55 tờ/q",
+      "price": 7500,
+      "stock": 129,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS045",
+      "name": "Sổ vẽ Sakura Kraft nâu ĐL130 A5 - 55 tờ",
+      "unit": "quyển",
+      "specification": "55 tờ/q",
+      "price": 13500,
+      "stock": 174,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS046",
+      "name": "Sổ vẽ Sakura Kraft nâu ĐL130 A4 - 55 tờ",
+      "unit": "quyển",
+      "specification": "55 tờ/q",
+      "price": 22000,
+      "stock": 174,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS047",
+      "name": "Sổ vẽ lò xo Roky A5 - 50 tờ",
+      "unit": "quyển",
+      "specification": "50 tờ/q",
+      "price": 18000,
+      "stock": 29,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS048",
+      "name": "Sổ vẽ lò xo Roky A4 - 50 tờ",
+      "unit": "quyển",
+      "specification": "50 tờ/q",
+      "price": 30000,
+      "stock": 70,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS049",
+      "name": "Vở vẽ lò xo A4 (20t/q)",
+      "unit": "quyển",
+      "specification": "20 tờ/q",
+      "price": 12500,
+      "stock": 720,
+      "is_frequent": true,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS050",
+      "name": "Vở vẽ lò xo A3 (20t/q)",
+      "unit": "quyển",
+      "specification": "20 tờ/q",
+      "price": 23000,
+      "stock": 44,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS051",
+      "name": "Sổ đen A5 ĐL100",
+      "unit": "quyển",
+      "specification": "100 tờ/q",
+      "price": 23000,
+      "stock": 124,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS052",
+      "name": "Sổ đen A4 ĐL100",
+      "unit": "quyển",
+      "specification": "100 tờ/q",
+      "price": 37000,
+      "stock": 132,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS053A5",
+      "name": "Sổ nâu A5 ĐL100",
+      "unit": "quyển",
+      "specification": "100 tờ/q",
+      "price": 21000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS054",
+      "name": "Sổ nâu A4 ĐL100",
+      "unit": "quyển",
+      "specification": "100 tờ/q",
+      "price": 35000,
+      "stock": 0,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "SỔ VẼ",
+      "code": "MS053",
+      "name": "Vở vẽ lò xo A6 -30 tờ",
+      "unit": "quyển",
+      "specification": "30 tờ/q",
+      "price": 9000,
+      "stock": 528,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "GIẤY OP",
+      "code": "OPA4",
+      "name": "Giấy op ĐL200 A4",
+      "unit": "Tập",
+      "specification": "1000t/t",
+      "price": 0,
+      "stock": 7100,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    },
+    {
+      "category": "GIẤY OP",
+      "code": "OPA3",
+      "name": "Giấy op ĐL200 A3",
+      "unit": "Tập",
+      "specification": "500t/1",
+      "price": 0,
+      "stock": 4000,
+      "is_frequent": false,
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_at": "31/03/2026"
+    }
+  ],
+  "imports": [
+    {
+      "import_code": "IMP-20260331-001",
+      "supplier_name": "Tạ Khánh Ly",
+      "imported_by": "takhanhly",
+      "note": "Khởi tạo tồn kho từ bảng báo giá mới",
+      "created_at": "2026-03-31",
+      "items": [
+        {
+          "code": "BA4XL",
+          "quantity": 82
+        },
+        {
+          "code": "BA4XB",
+          "quantity": 121
+        },
+        {
+          "code": "BA4V",
+          "quantity": 28
+        },
+        {
+          "code": "BA4H",
+          "quantity": 208
+        },
+        {
+          "code": "BA4",
+          "quantity": 46
+        },
+        {
+          "code": "BA3XL",
+          "quantity": 5
+        },
+        {
+          "code": "BA3XB",
+          "quantity": 11
+        },
+        {
+          "code": "BA3H",
+          "quantity": 1
+        },
+        {
+          "code": "BA3V",
+          "quantity": 1
+        },
+        {
+          "code": "BA3",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA4VC",
+          "quantity": 41
+        },
+        {
+          "code": "BDBA4XN",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA4VN",
+          "quantity": 38
+        },
+        {
+          "code": "BDBA4XV",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA4ĐC",
+          "quantity": 29
+        },
+        {
+          "code": "BDBA4VK",
+          "quantity": 27
+        },
+        {
+          "code": "BDBATĐ",
+          "quantity": 0
+        },
+        {
+          "code": "BDBATN",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA4TH",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA4VKEM",
+          "quantity": 14
+        },
+        {
+          "code": "BDBA4",
+          "quantity": 283
+        },
+        {
+          "code": "BDBA4TR",
+          "quantity": 65
+        },
+        {
+          "code": "BDBA4Đ",
+          "quantity": 12
+        },
+        {
+          "code": "BDBA4XNV",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA4N",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA4",
+          "quantity": 149
+        },
+        {
+          "code": "BDBA4XL",
+          "quantity": 18
+        },
+        {
+          "code": "BDBA4XD",
+          "quantity": 19
+        },
+        {
+          "code": "BDBA3VC",
+          "quantity": 6
+        },
+        {
+          "code": "BDBA3XN",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA3VN",
+          "quantity": 3
+        },
+        {
+          "code": "BDBA3XV",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA3ĐC",
+          "quantity": 8
+        },
+        {
+          "code": "BDBA3VK",
+          "quantity": 1
+        },
+        {
+          "code": "BDBATĐ",
+          "quantity": 0
+        },
+        {
+          "code": "BDBATN",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA3TH",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA3VKEM",
+          "quantity": 1
+        },
+        {
+          "code": "BDBA3",
+          "quantity": 8
+        },
+        {
+          "code": "BDBA3TR",
+          "quantity": 15
+        },
+        {
+          "code": "BDBA3Đ",
+          "quantity": 22
+        },
+        {
+          "code": "BDBA3XNV",
+          "quantity": 1
+        },
+        {
+          "code": "BDBA3N",
+          "quantity": 0
+        },
+        {
+          "code": "BDBA3",
+          "quantity": 2
+        },
+        {
+          "code": "BDBA3XL",
+          "quantity": 6
+        },
+        {
+          "code": "BDBA3XD",
+          "quantity": 5
+        },
+        {
+          "code": "BDQA4Đ",
+          "quantity": 0
+        },
+        {
+          "code": "BDQA4H",
+          "quantity": 0
+        },
+        {
+          "code": "BN0.35*A4",
+          "quantity": 0
+        },
+        {
+          "code": "PA4TR",
+          "quantity": 29
+        },
+        {
+          "code": "PA4XB",
+          "quantity": 24
+        },
+        {
+          "code": "PA4H",
+          "quantity": 60
+        },
+        {
+          "code": "PA4V",
+          "quantity": 47
+        },
+        {
+          "code": "PA4XL",
+          "quantity": 47
+        },
+        {
+          "code": "PA3V",
+          "quantity": 3
+        },
+        {
+          "code": "PA3H",
+          "quantity": 7
+        },
+        {
+          "code": "MS033",
+          "quantity": 0
+        },
+        {
+          "code": "PDBA4XL",
+          "quantity": 0
+        },
+        {
+          "code": "PDBA4XB",
+          "quantity": 11
+        },
+        {
+          "code": "PDBA4VC",
+          "quantity": 7
+        },
+        {
+          "code": "PDBA4VN",
+          "quantity": 12
+        },
+        {
+          "code": "PDBA4TD",
+          "quantity": 0
+        },
+        {
+          "code": "PDBA4D",
+          "quantity": 0
+        },
+        {
+          "code": "PDBA4VK",
+          "quantity": 16
+        },
+        {
+          "code": "F5",
+          "quantity": 1007
+        },
+        {
+          "code": "F10",
+          "quantity": 1050
+        },
+        {
+          "code": "F12",
+          "quantity": 1039
+        },
+        {
+          "code": "F16",
+          "quantity": 13
+        },
+        {
+          "code": "F31",
+          "quantity": 36
+        },
+        {
+          "code": "FILEAXB",
+          "quantity": 0
+        },
+        {
+          "code": "FILEAXL",
+          "quantity": 0
+        },
+        {
+          "code": "FILEAH",
+          "quantity": 0
+        },
+        {
+          "code": "FILEAV",
+          "quantity": 1383
+        },
+        {
+          "code": "FILEFXB",
+          "quantity": 0
+        },
+        {
+          "code": "FILEFXL",
+          "quantity": 0
+        },
+        {
+          "code": "FILEFH",
+          "quantity": 0
+        },
+        {
+          "code": "FILEFV",
+          "quantity": 0
+        },
+        {
+          "code": "FILEXB",
+          "quantity": 105
+        },
+        {
+          "code": "FILEXL",
+          "quantity": 163
+        },
+        {
+          "code": "FILEH",
+          "quantity": 135
+        },
+        {
+          "code": "FILEV",
+          "quantity": 0
+        },
+        {
+          "code": "VVHSA4",
+          "quantity": 592
+        },
+        {
+          "code": "VVA4",
+          "quantity": 35
+        },
+        {
+          "code": "VVA3",
+          "quantity": 110
+        },
+        {
+          "code": "MS019",
+          "quantity": 599
+        },
+        {
+          "code": "MS011",
+          "quantity": 680
+        },
+        {
+          "code": "MS010",
+          "quantity": 297
+        },
+        {
+          "code": "MS009",
+          "quantity": 388
+        },
+        {
+          "code": "MS020",
+          "quantity": 143
+        },
+        {
+          "code": "MS021",
+          "quantity": 228
+        },
+        {
+          "code": "MS025",
+          "quantity": 204
+        },
+        {
+          "code": "MS026",
+          "quantity": 400
+        },
+        {
+          "code": "MS027",
+          "quantity": 322
+        },
+        {
+          "code": "MS029",
+          "quantity": 680
+        },
+        {
+          "code": "MS030",
+          "quantity": 466
+        },
+        {
+          "code": "MS031",
+          "quantity": 175
+        },
+        {
+          "code": "MS012",
+          "quantity": 520
+        },
+        {
+          "code": "MS013",
+          "quantity": 141
+        },
+        {
+          "code": "MS037",
+          "quantity": 214
+        },
+        {
+          "code": "MS038",
+          "quantity": 75
+        },
+        {
+          "code": "MS039",
+          "quantity": 458
+        },
+        {
+          "code": "MS040",
+          "quantity": 424
+        },
+        {
+          "code": "MS014",
+          "quantity": 237
+        },
+        {
+          "code": "MS015",
+          "quantity": 69
+        },
+        {
+          "code": "MS016",
+          "quantity": 318
+        },
+        {
+          "code": "MS017",
+          "quantity": 0
+        },
+        {
+          "code": "MS018",
+          "quantity": 20
+        },
+        {
+          "code": "MS022",
+          "quantity": 0
+        },
+        {
+          "code": "MS023",
+          "quantity": 0
+        },
+        {
+          "code": "MS028",
+          "quantity": 0
+        },
+        {
+          "code": "MS028",
+          "quantity": 0
+        },
+        {
+          "code": "MS028",
+          "quantity": 0
+        },
+        {
+          "code": "MS028",
+          "quantity": 0
+        },
+        {
+          "code": "MS028",
+          "quantity": 0
+        },
+        {
+          "code": "MS028",
+          "quantity": 0
+        },
+        {
+          "code": "MS041",
+          "quantity": 181
+        },
+        {
+          "code": "MS042",
+          "quantity": 169
+        },
+        {
+          "code": "MS043",
+          "quantity": 126
+        },
+        {
+          "code": "MS044",
+          "quantity": 129
+        },
+        {
+          "code": "MS045",
+          "quantity": 174
+        },
+        {
+          "code": "MS046",
+          "quantity": 174
+        },
+        {
+          "code": "MS047",
+          "quantity": 29
+        },
+        {
+          "code": "MS048",
+          "quantity": 70
+        },
+        {
+          "code": "MS049",
+          "quantity": 720
+        },
+        {
+          "code": "MS050",
+          "quantity": 44
+        },
+        {
+          "code": "MS051",
+          "quantity": 124
+        },
+        {
+          "code": "MS052",
+          "quantity": 132
+        },
+        {
+          "code": "MS053A5",
+          "quantity": 0
+        },
+        {
+          "code": "MS054",
+          "quantity": 0
+        },
+        {
+          "code": "MS053",
+          "quantity": 528
+        },
+        {
+          "code": "OPA4",
+          "quantity": 7100
+        },
+        {
+          "code": "OPA3",
+          "quantity": 4000
+        }
+      ]
+    }
+  ]
+}

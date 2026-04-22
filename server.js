@@ -7,6 +7,7 @@ const bcrypt = require('bcryptjs');
 const { Pool } = require('pg');
 const PDFDocument = require('pdfkit');
 const path = require('path');
+const fs = require('fs');
 
 const app = express();
 const PORT = Number(process.env.PORT || 3000);
@@ -53,6 +54,16 @@ function text(value, fallback = '') {
   return String(value ?? fallback).trim();
 }
 
+function escapeHtml(value) {
+  return String(value ?? '').replace(/[&<>\"']/g, (m) => ({
+    '&': '&amp;',
+    '<': '&lt;',
+    '>': '&gt;',
+    '"': '&quot;',
+    "'": '&#39;',
+  }[m]));
+}
+
 function money(value) {
   return new Intl.NumberFormat('vi-VN').format(Math.round(n(value)));
 }
@@ -81,6 +92,39 @@ function monthLabel(month, year) {
 
 function code(prefix) {
   return `${prefix}-${Date.now().toString().slice(-6)}-${Math.floor(Math.random() * 900 + 100)}`;
+}
+
+const PDF_FONT_CANDIDATES = [
+  'C:\\Windows\\Fonts\\arial.ttf',
+  'C:\\Windows\\Fonts\\tahoma.ttf',
+  'C:\\Windows\\Fonts\\segoeui.ttf',
+  'C:\\Windows\\Fonts\\arialuni.ttf',
+  '/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf',
+  '/usr/share/fonts/truetype/liberation2/LiberationSans-Regular.ttf',
+  '/System/Library/Fonts/Supplemental/Arial Unicode.ttf',
+  '/Library/Fonts/Arial Unicode.ttf',
+  '/System/Library/Fonts/Supplemental/Arial.ttf',
+];
+
+function resolvePdfFont() {
+  for (const fontPath of PDF_FONT_CANDIDATES) {
+    try {
+      if (fs.existsSync(fontPath)) return fontPath;
+    } catch (_) {}
+  }
+  return null;
+}
+
+const PDF_FONT_REGULAR = resolvePdfFont();
+const PDF_FONT_BOLD = PDF_FONT_REGULAR;
+
+function usePdfFont(doc, bold = false) {
+  const fontPath = bold ? PDF_FONT_BOLD : PDF_FONT_REGULAR;
+  if (fontPath) {
+    doc.font(fontPath);
+    return;
+  }
+  doc.font(bold ? 'Helvetica-Bold' : 'Helvetica');
 }
 
 function mergeItems(items) {
@@ -112,10 +156,25 @@ function isManagerSession(req) {
 
 function requireAuth(req, res, next) {
   if (!req.session.user) {
-    return res.status(401).json({ success: false, message: 'Cần đăng nhập quản lý.' });
+    return res.status(401).json({ success: false, message: 'Cần đăng nhập.' });
   }
   next();
 }
+
+function requireRole(roles = []) {
+  const allowed = Array.isArray(roles) ? roles : [roles];
+  return (req, res, next) => {
+    if (!req.session.user) {
+      return res.status(401).json({ success: false, message: 'Cần đăng nhập.' });
+    }
+    if (allowed.length && !allowed.includes(req.session.user.role)) {
+      return res.status(403).json({ success: false, message: 'Không có quyền truy cập.' });
+    }
+    next();
+  };
+}
+
+const requireManager = requireRole(['manager']);
 
 async function q(sql, params = []) {
   return pool.query(sql, params);
@@ -184,7 +243,7 @@ async function ensureSchema() {
 
     CREATE TABLE IF NOT EXISTS products (
       id SERIAL PRIMARY KEY,
-      code VARCHAR(120) NOT NULL,
+      code VARCHAR(120) UNIQUE NOT NULL,
       name VARCHAR(255) NOT NULL,
       category VARCHAR(120) NOT NULL DEFAULT '',
       unit VARCHAR(50) NOT NULL DEFAULT '',
@@ -251,8 +310,6 @@ async function ensureSchema() {
       created_at TIMESTAMP NOT NULL DEFAULT NOW()
     );
   `);
-
-  await q(`ALTER TABLE products DROP CONSTRAINT IF EXISTS products_code_key`);
 
   await q(`ALTER TABLE suppliers ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT NOW()`);
   await q(`ALTER TABLE customers ADD COLUMN IF NOT EXISTS is_walk_in BOOLEAN NOT NULL DEFAULT FALSE`);
@@ -1031,40 +1088,67 @@ async function loadOrderById(client, id) {
   return order;
 }
 
+
 function pdfHeader(doc, title, subtitle = '') {
+  usePdfFont(doc, true);
   doc.fontSize(18).fillColor('#333').text(title, { align: 'center' });
-  if (subtitle) doc.moveDown(0.3).fontSize(10).fillColor('#666').text(subtitle, { align: 'center' });
+  if (subtitle) {
+    usePdfFont(doc, false);
+    doc.moveDown(0.3).fontSize(10).fillColor('#666').text(subtitle, { align: 'center' });
+  }
   doc.moveDown();
   doc.strokeColor('#d7c0d0').lineWidth(1).moveTo(40, doc.y).lineTo(555, doc.y).stroke();
   doc.moveDown();
 }
 
 function pdfKv(doc, label, value) {
-  doc.fontSize(11).fillColor('#333').text(`${label}: `, { continued: true }).fillColor('#8b5c7d').text(String(value ?? ''));
+  usePdfFont(doc, false);
+  doc.fontSize(11).fillColor('#333').text(`${label}: `, { continued: true });
+  usePdfFont(doc, true);
+  doc.fillColor('#8b5c7d').text(String(value ?? ''));
 }
 
 function renderPdfList(doc, title, rows, mapper) {
   doc.moveDown();
+  usePdfFont(doc, true);
   doc.fontSize(13).fillColor('#333').text(title);
   doc.moveDown(0.4);
   rows.forEach((row, idx) => {
     const textLine = mapper(row, idx);
+    usePdfFont(doc, false);
     doc.fontSize(10).fillColor('#444').text(`${idx + 1}. ${textLine}`, { indent: 10 });
   });
 }
 
+function drawSummaryPill(doc, x, y, w, h, label, value) {
+  doc.save();
+  doc.roundedRect(x, y, w, h, 10).fillAndStroke('#fff6fb', '#ebcfe0');
+  usePdfFont(doc, false);
+  doc.fillColor('#7a5670').fontSize(9).text(label, x + 10, y + 8, { width: w - 20, align: 'left' });
+  usePdfFont(doc, true);
+  doc.fillColor('#2f2630').fontSize(14).text(String(value ?? ''), x + 10, y + 22, { width: w - 20, align: 'left' });
+  doc.restore();
+}
+
 function sendMonthlyPdf(res, report) {
   const doc = new PDFDocument({ margin: 40, size: 'A4' });
+  if (PDF_FONT_REGULAR) usePdfFont(doc, false);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `attachment; filename="bao-cao-${report.month_label.replace('/', '-')}.pdf"`);
   doc.pipe(res);
   pdfHeader(doc, 'BÁO CÁO THÁNG', `Tháng ${report.month_label}`);
-  pdfKv(doc, 'Tổng số đơn hàng', report.total_orders);
-  pdfKv(doc, 'Tổng doanh thu', `${money(report.total_revenue)} ₫`);
-  pdfKv(doc, 'Đã thu', `${money(report.total_paid)} ₫`);
-  pdfKv(doc, 'Chưa thu', `${money(report.total_unpaid)} ₫`);
-  pdfKv(doc, 'Tổng số lượng nhập kho', report.total_import_qty);
-  pdfKv(doc, 'Tổng số lượng bán ra', report.total_sold_qty);
+  const startX = 40;
+  const gap = 12;
+  const colW = (515 - gap) / 2;
+  drawSummaryPill(doc, startX, doc.y, colW, 52, 'Tổng số đơn hàng', report.total_orders);
+  drawSummaryPill(doc, startX + colW + gap, doc.y, colW, 52, 'Tổng doanh thu', `${money(report.total_revenue)} ₫`);
+  doc.y += 66;
+  drawSummaryPill(doc, startX, doc.y, colW, 52, 'Đã thu', `${money(report.total_paid)} ₫`);
+  drawSummaryPill(doc, startX + colW + gap, doc.y, colW, 52, 'Chưa thu', `${money(report.total_unpaid)} ₫`);
+  doc.y += 66;
+  drawSummaryPill(doc, startX, doc.y, colW, 52, 'Tổng lượng nhập', report.total_import_qty);
+  drawSummaryPill(doc, startX + colW + gap, doc.y, colW, 52, 'Tổng lượng bán', report.total_sold_qty);
+  doc.y += 66;
   pdfKv(doc, 'Tồn kho cuối tháng', report.ending_stock);
   renderPdfList(doc, 'Top sản phẩm bán chạy', report.top_sold.slice(0, 10), (r) => `${r.code} - ${r.name} | SL bán: ${r.sold_qty}`);
   doc.addPage();
@@ -1075,20 +1159,214 @@ function sendMonthlyPdf(res, report) {
 
 function sendSummaryPdf(res, summary) {
   const doc = new PDFDocument({ margin: 40, size: 'A4' });
+  if (PDF_FONT_REGULAR) usePdfFont(doc, false);
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', 'attachment; filename="bao-cao-tong-quan.pdf"');
   doc.pipe(res);
   pdfHeader(doc, 'BÁO CÁO TỔNG QUAN');
-  pdfKv(doc, 'Tổng số sản phẩm', summary.total_products);
-  pdfKv(doc, 'Tổng tồn kho hiện tại', summary.total_stock);
-  pdfKv(doc, 'Tổng doanh thu', `${money(summary.total_revenue)} ₫`);
-  pdfKv(doc, 'Đã thu', `${money(summary.total_paid)} ₫`);
-  pdfKv(doc, 'Chưa thu', `${money(summary.total_unpaid)} ₫`);
+  const startX = 40;
+  const gap = 12;
+  const colW = (515 - gap) / 2;
+  drawSummaryPill(doc, startX, doc.y, colW, 52, 'Tổng số sản phẩm', summary.total_products);
+  drawSummaryPill(doc, startX + colW + gap, doc.y, colW, 52, 'Tổng tồn kho', summary.total_stock);
+  doc.y += 66;
+  drawSummaryPill(doc, startX, doc.y, colW, 52, 'Tổng doanh thu', `${money(summary.total_revenue)} ₫`);
+  drawSummaryPill(doc, startX + colW + gap, doc.y, colW, 52, 'Đã thu', `${money(summary.total_paid)} ₫`);
+  doc.y += 66;
+  drawSummaryPill(doc, startX, doc.y, colW, 52, 'Chưa thu', `${money(summary.total_unpaid)} ₫`);
+  doc.y += 66;
   renderPdfList(doc, 'Top sản phẩm tồn nhiều', summary.top_stock.slice(0, 10), (r) => `${r.code} - ${r.name} | Tồn: ${r.current_stock}`);
   doc.addPage();
   pdfHeader(doc, 'Top sản phẩm bán nhiều');
   renderPdfList(doc, 'Top bán', summary.top_sold.slice(0, 10), (r) => `${r.code} - ${r.name} | Bán: ${r.sold_qty} | Tồn: ${r.current_stock}`);
   doc.end();
+}
+
+
+function reportCardHtml(title, value, sub = '') {
+  return `
+    <div class="report-card">
+      <div class="report-card-label">${escapeHtml(title)}</div>
+      <div class="report-card-value">${escapeHtml(value)}</div>
+      ${sub ? `<div class="report-card-sub">${escapeHtml(sub)}</div>` : ''}
+    </div>
+  `;
+}
+
+function renderReportPageShell({ title, subtitle = '', cards = '', tables = '', extra = '' }) {
+  return `<!doctype html>
+<html lang="vi">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>${escapeHtml(title)}</title>
+  <style>
+    :root{
+      --bg:#fff7fb; --panel:#fff; --line:#ecd7e4; --text:#2f2430; --muted:#7e6879; --pink:#e78cbc;
+      --pink2:#f8e1ee; --shadow:0 18px 40px rgba(0,0,0,.08);
+    }
+    *{box-sizing:border-box}
+    body{margin:0;font-family:Arial,Helvetica,sans-serif;background:linear-gradient(180deg,#fff 0%,#fff7fb 100%);color:var(--text)}
+    .page{max-width:1120px;margin:0 auto;padding:28px 18px 44px}
+    .head{display:flex;justify-content:space-between;gap:16px;align-items:flex-start;flex-wrap:wrap;margin-bottom:18px}
+    h1{margin:0;font-size:30px;letter-spacing:.02em}
+    .sub{color:var(--muted);margin-top:8px}
+    .toolbar{display:flex;gap:10px;flex-wrap:wrap}
+    .btn{border:1px solid var(--line);background:#fff;border-radius:999px;padding:10px 16px;font-weight:700;cursor:pointer}
+    .btn.primary{background:var(--pink2);border-color:#e5b4ce;color:#8e3f6d}
+    .grid{display:grid;gap:14px}
+    .grid.cards{grid-template-columns:repeat(4,minmax(0,1fr))}
+    .report-card,.panel{background:var(--panel);border:1px solid var(--line);border-radius:18px;box-shadow:var(--shadow)}
+    .report-card{padding:16px 18px}
+    .report-card-label{font-size:13px;color:var(--muted);font-weight:700}
+    .report-card-value{font-size:26px;font-weight:800;margin-top:6px}
+    .report-card-sub{color:var(--muted);font-size:13px;margin-top:4px}
+    .panel{padding:18px}
+    .panel h2{margin:0 0 12px;font-size:20px}
+    table{width:100%;border-collapse:collapse}
+    th,td{padding:12px 10px;border-bottom:1px solid #f3e9ef;text-align:left;vertical-align:top}
+    th{font-size:13px;color:#7a6573}
+    tbody tr:hover{background:#fff8fc}
+    .list{display:grid;gap:10px}
+    .list-item{padding:12px 14px;border:1px solid #f1e1eb;border-radius:14px}
+    .list-item-title{font-weight:800}
+    .list-item-sub{color:var(--muted);font-size:13px;margin-top:4px}
+    .muted{color:var(--muted)}
+    @media (max-width: 992px){
+      .grid.cards{grid-template-columns:repeat(2,minmax(0,1fr))}
+    }
+    @media (max-width: 640px){
+      .grid.cards{grid-template-columns:1fr}
+      h1{font-size:24px}
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="head">
+      <div>
+        <h1>${escapeHtml(title)}</h1>
+        ${subtitle ? `<div class="sub">${escapeHtml(subtitle)}</div>` : ''}
+      </div>
+      <div class="toolbar">
+        <button class="btn" onclick="window.print()">In / Lưu PDF</button>
+        <button class="btn primary" onclick="window.close()">Đóng</button>
+      </div>
+    </div>
+    ${cards ? `<div class="grid cards">${cards}</div>` : ''}
+    ${tables || ''}
+    ${extra || ''}
+  </div>
+</body>
+</html>`;
+}
+
+function renderProductsTableHtml(rows, title = 'Sản phẩm') {
+  return `
+    <div class="panel" style="margin-top:18px">
+      <h2>${escapeHtml(title)}</h2>
+      <table>
+        <thead>
+          <tr>
+            <th>#</th><th>Mã</th><th>Tên</th><th>Loại</th><th>DVT</th><th>Quy cách</th><th class="text-right">Tồn</th>
+          </tr>
+        </thead>
+        <tbody>
+          ${rows.map((r, idx) => `
+            <tr>
+              <td>${idx + 1}</td>
+              <td><b>${escapeHtml(r.code)}</b></td>
+              <td>${escapeHtml(r.name)}</td>
+              <td>${escapeHtml(r.category || '—')}</td>
+              <td>${escapeHtml(r.unit || '—')}</td>
+              <td>${escapeHtml(r.specification || '—')}</td>
+              <td><b>${money(r.current_stock)}</b></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+}
+
+function renderProductRankTable(rows, title, qtyLabel) {
+  return `
+    <div class="panel" style="margin-top:18px">
+      <h2>${escapeHtml(title)}</h2>
+      <div class="list">
+        ${rows.map((r, idx) => `
+          <div class="list-item">
+            <div class="list-item-title">${idx + 1}. ${escapeHtml(r.code)} - ${escapeHtml(r.name)}</div>
+            <div class="list-item-sub">${qtyLabel}: <b>${money(r.sold_qty ?? r.current_stock ?? 0)}</b> • Loại: ${escapeHtml(r.category || '—')} • DVT: ${escapeHtml(r.unit || '—')} • Quy cách: ${escapeHtml(r.specification || '—')}</div>
+          </div>
+        `).join('')}
+      </div>
+    </div>
+  `;
+}
+
+function renderMonthlyPreviewHtml(report) {
+  const cards = [
+    reportCardHtml('Tổng đơn hàng', report.total_orders),
+    reportCardHtml('Tổng doanh thu', `${money(report.total_revenue)} ₫`),
+    reportCardHtml('Đã thu', `${money(report.total_paid)} ₫`),
+    reportCardHtml('Chưa thu', `${money(report.total_unpaid)} ₫`),
+    reportCardHtml('Tổng lượng nhập', report.total_import_qty),
+    reportCardHtml('Tổng lượng bán', report.total_sold_qty),
+    reportCardHtml('Tồn kho cuối tháng', report.ending_stock),
+    reportCardHtml('Kỳ báo cáo', `Tháng ${report.month_label}`),
+  ].join('');
+
+  const tables = `
+    ${renderProductRankTable((report.top_sold || []).slice(0, 10), 'Top sản phẩm bán nhiều nhất', 'SL bán')}
+    ${renderProductRankTable((report.top_stock || []).slice(0, 10), 'Top sản phẩm tồn nhiều nhất', 'Tồn')}
+    <div class="panel" style="margin-top:18px">
+      <h2>Tổng số lượng từng sản phẩm đã bán</h2>
+      <table>
+        <thead>
+          <tr><th>#</th><th>Mã</th><th>Tên</th><th>Đã bán</th><th>Tồn hiện tại</th></tr>
+        </thead>
+        <tbody>
+          ${(report.by_product || []).map((r, idx) => `
+            <tr>
+              <td>${idx + 1}</td>
+              <td><b>${escapeHtml(r.code)}</b></td>
+              <td>${escapeHtml(r.name)}</td>
+              <td><b>${Number(r.sold_qty || 0)}</b></td>
+              <td><b>${Number(r.current_stock || 0)}</b></td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>
+    </div>
+  `;
+  return renderReportPageShell({
+    title: 'BÁO CÁO THÁNG',
+    subtitle: `Tháng ${report.month_label}`,
+    cards,
+    tables,
+  });
+}
+
+function renderSummaryPreviewHtml(summary) {
+  const cards = [
+    reportCardHtml('Tổng sản phẩm', summary.total_products),
+    reportCardHtml('Tổng doanh thu', `${money(summary.total_revenue)} ₫`),
+    reportCardHtml('Đã thu', `${money(summary.total_paid)} ₫`),
+    reportCardHtml('Chưa thu', `${money(summary.total_unpaid)} ₫`),
+    reportCardHtml('Tổng tồn kho', summary.total_stock),
+  ].join('');
+
+  const tables = `
+    ${renderProductRankTable((summary.top_sold || []).slice(0, 10), 'Top sản phẩm bán nhiều nhất', 'SL bán')}
+    ${renderProductRankTable((summary.top_stock || []).slice(0, 10), 'Top sản phẩm tồn nhiều nhất', 'Tồn')}
+  `;
+  return renderReportPageShell({
+    title: 'BÁO CÁO TỔNG QUAN',
+    subtitle: 'Tổng hợp kho và doanh thu',
+    cards,
+    tables,
+  });
 }
 
 /* AUTH */
@@ -1104,7 +1382,13 @@ app.post('/api/auth/login', async (req, res) => {
       return res.status(401).json({ success: false, message: 'Tài khoản hoặc mật khẩu không đúng.' });
     }
     const user = rows[0];
-    const ok = await bcrypt.compare(password, user.password_hash);
+    const storedPassword = String(user.password_hash || user.password || '');
+    let ok = false;
+    if (storedPassword.startsWith('$2')) {
+      ok = await bcrypt.compare(password, storedPassword);
+    } else {
+      ok = password === storedPassword;
+    }
     if (!ok) {
       return res.status(401).json({ success: false, message: 'Tài khoản hoặc mật khẩu không đúng.' });
     }
@@ -1246,7 +1530,7 @@ app.get('/api/suppliers', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/suppliers', requireAuth, async (req, res) => {
+app.post('/api/suppliers', requireManager, async (req, res) => {
   try {
     const payload = req.body || {};
     const nameValue = text(payload.name);
@@ -1269,7 +1553,7 @@ app.post('/api/suppliers', requireAuth, async (req, res) => {
   }
 });
 
-app.put('/api/suppliers/:id', requireAuth, async (req, res) => {
+app.put('/api/suppliers/:id', requireManager, async (req, res) => {
   try {
     const id = i(req.params.id);
     const old = await q(`SELECT * FROM suppliers WHERE id = $1`, [id]);
@@ -1291,7 +1575,7 @@ app.put('/api/suppliers/:id', requireAuth, async (req, res) => {
   }
 });
 
-app.delete('/api/suppliers/:id', requireAuth, async (req, res) => {
+app.delete('/api/suppliers/:id', requireManager, async (req, res) => {
   try {
     const id = i(req.params.id);
     const old = await q(`SELECT * FROM suppliers WHERE id = $1`, [id]);
@@ -1319,7 +1603,7 @@ app.get('/api/customers', requireAuth, async (req, res) => {
   }
 });
 
-app.post('/api/customers', requireAuth, async (req, res) => {
+app.post('/api/customers', requireManager, async (req, res) => {
   try {
     const payload = req.body || {};
     const nameValue = text(payload.name);
@@ -1342,7 +1626,7 @@ app.post('/api/customers', requireAuth, async (req, res) => {
   }
 });
 
-app.put('/api/customers/:id', requireAuth, async (req, res) => {
+app.put('/api/customers/:id', requireManager, async (req, res) => {
   try {
     const id = i(req.params.id);
     const old = await q(`SELECT * FROM customers WHERE id = $1`, [id]);
@@ -1364,7 +1648,7 @@ app.put('/api/customers/:id', requireAuth, async (req, res) => {
   }
 });
 
-app.delete('/api/customers/:id', requireAuth, async (req, res) => {
+app.delete('/api/customers/:id', requireManager, async (req, res) => {
   try {
     const id = i(req.params.id);
     const old = await q(`SELECT * FROM customers WHERE id = $1`, [id]);
@@ -1586,8 +1870,30 @@ app.get('/api/reports/summary/pdf', requireAuth, async (req, res) => {
   }
 });
 
+app.get('/reports/monthly/preview', requireAuth, async (req, res) => {
+  try {
+    const report = await getMonthlyReport(req.query.month, req.query.year);
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderMonthlyPreviewHtml(report));
+  } catch (error) {
+    console.error(error);
+    res.status(400).send(`<pre>${escapeHtml(error.message || 'Không thể tải báo cáo.')}</pre>`);
+  }
+});
+
+app.get('/reports/summary/preview', requireAuth, async (req, res) => {
+  try {
+    const summary = await getSummaryReport();
+    res.setHeader('Content-Type', 'text/html; charset=utf-8');
+    res.send(renderSummaryPreviewHtml(summary));
+  } catch (error) {
+    console.error(error);
+    res.status(400).send(`<pre>${escapeHtml(error.message || 'Không thể tải báo cáo tổng quan.')}</pre>`);
+  }
+});
+
 /* LOGS */
-app.get('/api/logs', requireAuth, async (req, res) => {
+app.get('/api/logs', requireManager, async (req, res) => {
   try {
     const limit = Math.max(1, Math.min(500, i(req.query.limit || 100)));
     const { rows } = await q(
@@ -1606,7 +1912,7 @@ app.get('/api/logs', requireAuth, async (req, res) => {
 });
 
 /* DASHBOARD */
-app.get('/api/dashboard', requireAuth, async (req, res) => {
+app.get('/api/dashboard', requireManager, async (req, res) => {
   try {
     const data = await getDashboardData();
     res.json({ success: true, data });
