@@ -281,6 +281,7 @@ async function ensureSchema() {
       customer_name VARCHAR(180) NOT NULL DEFAULT '',
       customer_phone VARCHAR(60),
       customer_address TEXT,
+      note TEXT,
       total_amount NUMERIC(14,2) NOT NULL DEFAULT 0,
       is_paid BOOLEAN NOT NULL DEFAULT FALSE,
       created_by INTEGER REFERENCES users(id) ON DELETE SET NULL,
@@ -392,6 +393,7 @@ function rowOrder(row) {
     customer_name: row.customer_name || '',
     customer_phone: row.customer_phone || '',
     customer_address: row.customer_address || '',
+    note: row.note || '',
     total_amount: n(row.total_amount),
     is_paid: Boolean(row.is_paid),
     created_by: row.created_by,
@@ -737,8 +739,15 @@ async function listImports(filters = {}) {
 async function listOrders(filters = {}) {
   const params = [];
   const where = [];
+
+  if (filters.customer_id && filters.customer_id !== 'all') {
+    params.push(i(filters.customer_id));
+    where.push(`o.customer_id = $${params.length}`);
+  }
+
   if (filters.status === 'paid') where.push('o.is_paid = TRUE');
   if (filters.status === 'unpaid') where.push('o.is_paid = FALSE');
+
   if (filters.from) {
     params.push(filters.from);
     where.push(`o.created_at >= $${params.length}`);
@@ -747,6 +756,7 @@ async function listOrders(filters = {}) {
     params.push(filters.to);
     where.push(`o.created_at < $${params.length}`);
   }
+
   const sql = `
     SELECT o.*, u.full_name AS created_by_name
     FROM orders o
@@ -757,6 +767,7 @@ async function listOrders(filters = {}) {
   const { rows } = await q(sql, params);
   const orders = rows.map(rowOrder);
   const items = await getOrderItems(orders.map(x => x.id));
+
   const itemMap = new Map();
   for (const item of items) {
     const arr = itemMap.get(item.order_id) || [];
@@ -775,6 +786,7 @@ async function listOrders(filters = {}) {
     });
     itemMap.set(item.order_id, arr);
   }
+
   for (const row of orders) row.items = itemMap.get(row.id) || [];
   return orders;
 }
@@ -939,85 +951,147 @@ async function createOrUpdateOrder(client, payload, existing = null, actorId = n
   if (!items.length) throw new Error('Phải có ít nhất 1 dòng bán hàng.');
 
   const customer = await resolveCustomer(client, payload);
-  const createdAt = text(payload.created_at) ? parseDateValue(payload.created_at) : (existing ? new Date(existing.created_at) : new Date());
-  const isPaid = payload.is_paid === undefined || payload.is_paid === null ? (existing ? existing.is_paid : false) : Boolean(payload.is_paid);
+  const createdAt = text(payload.created_at)
+    ? parseDateValue(payload.created_at)
+    : (existing ? new Date(existing.created_at) : new Date());
+
+  const isPaid = payload.is_paid === undefined || payload.is_paid === null
+    ? (existing ? existing.is_paid : false)
+    : Boolean(payload.is_paid);
   const payment = Boolean(isPaid);
+  const note = text(payload.note);
 
   if (existing) {
     for (const item of existing.items) {
-      await client.query(`UPDATE products SET current_stock = current_stock + $1, updated_at = NOW() WHERE id = $2`, [item.quantity, item.product_id]);
+      await client.query(
+        `UPDATE products SET current_stock = current_stock + $1, updated_at = NOW() WHERE id = $2`,
+        [item.quantity, item.product_id]
+      );
     }
   }
 
   const map = await validateProductsForOrder(client, items);
 
+  const getUnitPrice = (item) => {
+    const raw = item.unit_price;
+    const hasPrice = !(raw === undefined || raw === null || raw === '');
+    const product = map.get(item.product_id);
+    return hasPrice ? n(raw) : n(product.sale_price);
+  };
+
   if (existing) {
     await client.query(`DELETE FROM order_items WHERE order_id = $1`, [existing.id]);
-    await client.query(
-      `UPDATE orders
-       SET customer_id = $1, customer_name = $2, customer_phone = $3, customer_address = $4, total_amount = $5, is_paid = $6, created_at = $7, updated_at = NOW()
-       WHERE id = $8`,
-      [customer.id, customer.name, customer.phone, customer.address, items.reduce((sum, item) => sum + (n(item.unit_price || map.get(item.product_id).sale_price) * item.quantity), 0), payment, createdAt, existing.id]
-    );
+
     let total = 0;
     for (const item of items) {
       const product = map.get(item.product_id);
-      const unitPrice = n(item.unit_price || product.sale_price);
+      const unitPrice = getUnitPrice(item);
       const lineTotal = unitPrice * item.quantity;
       total += lineTotal;
+
       await client.query(
         `INSERT INTO order_items (order_id, product_id, product_name_snapshot, quantity, unit_price, line_total, created_at)
          VALUES ($1,$2,$3,$4,$5,$6,$7)`,
         [existing.id, item.product_id, product.name, item.quantity, unitPrice, lineTotal, createdAt]
       );
-      await client.query(`UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`, [item.quantity, item.product_id]);
+
+      await client.query(
+        `UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`,
+        [item.quantity, item.product_id]
+      );
     }
-    await client.query(`UPDATE orders SET total_amount = $1 WHERE id = $2`, [total, existing.id]);
+
+    await client.query(
+      `UPDATE orders
+       SET customer_id = $1,
+           customer_name = $2,
+           customer_phone = $3,
+           customer_address = $4,
+           note = $5,
+           total_amount = $6,
+           is_paid = $7,
+           created_at = $8,
+           updated_at = NOW()
+       WHERE id = $9`,
+      [customer.id, customer.name, customer.phone, customer.address, note, total, payment, createdAt, existing.id]
+    );
+
     await logAction(client, {
       action: 'UPDATE',
       entity_type: 'orders',
       entity_id: existing.id,
       old_data: JSON.parse(JSON.stringify(existing)),
-      new_data: { ...existing, customer_id: customer.id, customer_name: customer.name, customer_phone: customer.phone, customer_address: customer.address, is_paid: payment, created_at: createdAt, items },
+      new_data: {
+        ...existing,
+        customer_id: customer.id,
+        customer_name: customer.name,
+        customer_phone: customer.phone,
+        customer_address: customer.address,
+        note,
+        total_amount: total,
+        is_paid: payment,
+        created_at: createdAt,
+        items,
+      },
       actor_id: actorId,
     });
     return existing.id;
   }
 
   const orderCode = code('ORD');
-  const orderTotal = items.reduce((sum, item) => {
+  let orderTotal = 0;
+
+  for (const item of items) {
     const product = map.get(item.product_id);
-    const unitPrice = n(item.unit_price || product.sale_price);
-    return sum + unitPrice * item.quantity;
-  }, 0);
+    const unitPrice = getUnitPrice(item);
+    orderTotal += unitPrice * item.quantity;
+  }
 
   const orderInsert = await client.query(
-    `INSERT INTO orders (order_code, customer_id, customer_name, customer_phone, customer_address, total_amount, is_paid, created_by, created_at)
-     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9)
+    `INSERT INTO orders (order_code, customer_id, customer_name, customer_phone, customer_address, note, total_amount, is_paid, created_by, created_at)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
      RETURNING *`,
-    [orderCode, customer.id, customer.name, customer.phone, customer.address, orderTotal, payment, actorId, createdAt]
+    [orderCode, customer.id, customer.name, customer.phone, customer.address, note, orderTotal, payment, actorId, createdAt]
   );
   const orderRow = orderInsert.rows[0];
 
   for (const item of items) {
     const product = map.get(item.product_id);
-    const unitPrice = n(item.unit_price || product.sale_price);
+    const unitPrice = getUnitPrice(item);
     const lineTotal = unitPrice * item.quantity;
+
     await client.query(
       `INSERT INTO order_items (order_id, product_id, product_name_snapshot, quantity, unit_price, line_total, created_at)
        VALUES ($1,$2,$3,$4,$5,$6,$7)`,
       [orderRow.id, item.product_id, product.name, item.quantity, unitPrice, lineTotal, createdAt]
     );
-    await client.query(`UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`, [item.quantity, item.product_id]);
+
+    await client.query(
+      `UPDATE products SET current_stock = current_stock - $1, updated_at = NOW() WHERE id = $2`,
+      [item.quantity, item.product_id]
+    );
   }
+
   await logAction(client, {
     action: 'CREATE',
     entity_type: 'orders',
     entity_id: orderRow.id,
     old_data: null,
-    new_data: { order_code: orderRow.order_code, customer_id: customer.id, customer_name: customer.name, customer_phone: customer.phone, customer_address: customer.address, total_amount: orderTotal, is_paid: payment, created_at: createdAt, items },
+    new_data: {
+      order_code: orderRow.order_code,
+      customer_id: customer.id,
+      customer_name: customer.name,
+      customer_phone: customer.phone,
+      customer_address: customer.address,
+      note,
+      total_amount: orderTotal,
+      is_paid: payment,
+      created_at: createdAt,
+      items,
+    },
     actor_id: actorId,
   });
+
   return orderRow.id;
 }
 
@@ -1730,7 +1804,7 @@ app.delete('/api/imports/:id', requireAuth, async (req, res) => {
 /* ORDERS */
 app.get('/api/orders', requireAuth, async (req, res) => {
   try {
-    res.json({ success: true, data: await listOrders({ status: req.query.status, from: req.query.from, to: req.query.to }) });
+    res.json({ success: true, data: await listOrders({ customer_id: req.query.customer_id, status: req.query.status, from: req.query.from, to: req.query.to }) });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Không thể tải hóa đơn.' });

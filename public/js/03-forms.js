@@ -535,6 +535,10 @@ function openOrderModal(order = null) {
         <label class="form-label">Địa chỉ</label>
         <input class="form-control" id="orderCustomerAddress" value="${esc(order?.customer_address || '')}">
       </div>
+      <div class="mb-3">
+        <label class="form-label">Ghi chú</label>
+        <textarea class="form-control" id="orderNote" rows="2" placeholder="Ghi chú đơn hàng, yêu cầu đặc biệt...">${esc(order?.note || '')}</textarea>
+      </div>
     </div>
     <div class="d-flex justify-content-between align-items-center mb-2">
       <h6 class="mb-0">Danh sách sản phẩm</h6>
@@ -558,6 +562,7 @@ function openOrderModal(order = null) {
       customer_name: $('orderCustomerName').value.trim(),
       customer_phone: $('orderCustomerPhone').value.trim(),
       customer_address: $('orderCustomerAddress').value.trim(),
+      note: $('orderNote').value.trim(),
       created_at: $('orderDate').value,
       is_paid: $('orderPaid').checked,
       items,
@@ -623,6 +628,8 @@ function openOrderDetail(order) {
         <div class="fw-bold">${order.is_paid ? '<span class="badge text-bg-success">Đã trả tiền</span>' : '<span class="badge text-bg-warning">Chưa trả tiền</span>'}</div>
       </div>
       <div class="panel">
+        <div class="small text-muted">Ghi chú</div>
+        <div class="fw-bold mb-2">${esc(order.note || '-')}</div>
         <div class="kpi-title mb-2">Tổng tiền</div>
         <div class="stat-value">${money(order.total_amount)}</div>
         <div class="stat-foot">Số lượng sản phẩm: ${sumBy(order.items || [], (x) => x.quantity)}</div>
@@ -948,6 +955,11 @@ function initModalHandlers() {
     const target = e.target;
     if (!target) return;
     if (target.id === 'productSearch' || target.id === 'productCategory' || target.id === 'productFrequent') {
+      return;
+    }
+    if (target.id === 'orderCustomerFilter') {
+      state.invoiceCustomer = target.value || 'all';
+      renderSalesPage();
       return;
     }
   });

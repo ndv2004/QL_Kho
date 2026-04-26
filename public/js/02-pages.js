@@ -451,7 +451,13 @@ function renderImportsPage() {
 function renderSalesPage() {
   const canManage = canWriteSales();
   const canDelete = canWriteSales();
+  state.invoiceCustomer = state.invoiceCustomer || 'all';
+  const selectedCustomer = String(state.invoiceCustomer);
+  const customerOptions = (state.customers || []).map((c) => (
+    `<option value="${c.id}" ${String(c.id) === selectedCustomer ? 'selected' : ''}>${esc(c.name)}</option>`
+  )).join('');
   const listBase = state.orders.filter((o) => {
+    if (selectedCustomer !== 'all' && String(o.customer_id || '') !== selectedCustomer) return false;
     if (state.invoiceStatus === 'paid') return o.is_paid;
     if (state.invoiceStatus === 'unpaid') return !o.is_paid;
     return true;
@@ -519,13 +525,24 @@ function renderSalesPage() {
 
     <div class="panel mb-4">
       <div class="action-bar justify-content-between align-items-center flex-wrap gap-2">
-        <div class="chips">
-          <button class="chip ${state.invoiceStatus === 'all' ? 'active' : ''}" data-action="set-invoice-filter" data-value="all">Tất cả</button>
-          <button class="chip ${state.invoiceStatus === 'paid' ? 'active' : ''}" data-action="set-invoice-filter" data-value="paid">Đã trả tiền</button>
-          <button class="chip ${state.invoiceStatus === 'unpaid' ? 'active' : ''}" data-action="set-invoice-filter" data-value="unpaid">Chưa trả tiền</button>
-          <button class="chip ${state.orderSort === 'newest' ? 'active' : ''}" data-action="set-order-sort" data-value="newest">Mới nhất</button>
-          <button class="chip ${state.orderSort === 'oldest' ? 'active' : ''}" data-action="set-order-sort" data-value="oldest">Cũ nhất</button>
-        </div>
+        <div class="d-flex align-items-center gap-2 flex-wrap">
+
+    <div style="min-width:220px; max-width:320px;">
+      <select id="orderCustomerFilter" class="form-select">
+        <option value="all" ${selectedCustomer === 'all' ? 'selected' : ''}>Tất cả khách hàng</option>
+        ${customerOptions}
+      </select>
+    </div>
+
+    <div class="chips">
+      <button class="chip ${state.invoiceStatus === 'all' ? 'active' : ''}" data-action="set-invoice-filter" data-value="all">Tất cả</button>
+      <button class="chip ${state.invoiceStatus === 'paid' ? 'active' : ''}" data-action="set-invoice-filter" data-value="paid">Đã trả tiền</button>
+      <button class="chip ${state.invoiceStatus === 'unpaid' ? 'active' : ''}" data-action="set-invoice-filter" data-value="unpaid">Chưa trả tiền</button>
+      <button class="chip ${state.orderSort === 'newest' ? 'active' : ''}" data-action="set-order-sort" data-value="newest">Mới nhất</button>
+      <button class="chip ${state.orderSort === 'oldest' ? 'active' : ''}" data-action="set-order-sort" data-value="oldest">Cũ nhất</button>
+    </div>
+
+  </div>
         <div class="action-bar">
           ${canManage ? `<button class="btn btn-pink" data-action="add-order"><i class="bi bi-plus-lg me-1"></i>Tạo đơn</button>` : ''}
           <button class="btn btn-light" data-action="reload-orders"><i class="bi bi-arrow-clockwise me-1"></i>Làm mới</button>
