@@ -1065,3 +1065,81 @@ body.global-picker-open {
     justify-content: flex-end;
   }
 }
+
+/* ===== QL HOADON FILTER (NEW POS STYLE) ===== */
+
+.ql-filter-box{
+  display:flex;
+  flex-direction:column;
+  gap:12px;
+}
+
+/* mỗi hàng */
+.ql-filter-row{
+  display:grid;
+  grid-template-columns: 2fr 1fr 1fr;
+  gap:12px;
+}
+
+/* hàng dưới */
+.ql-filter-row:nth-child(2){
+  grid-template-columns: 1fr 1fr 1fr 1fr auto;
+}
+
+/* input chung */
+.ql-field input,
+.ql-field select{
+  height:48px;
+  border-radius:14px;
+}
+
+/* ô search to hơn */
+.ql-search input{
+  font-weight:600;
+}
+
+/* actions */
+.ql-actions{
+  display:flex;
+  gap:8px;
+  align-items:center;
+}
+
+/* nút chính */
+.btn-pink{
+  background: linear-gradient(135deg,#ea8ec7,#f3b3d9);
+  color:#fff;
+  border:none;
+  font-weight:600;
+}
+
+.btn-pink:hover{
+  filter:brightness(.95);
+}
+
+/* nút phụ */
+.btn-outline-pink{
+  border:1px solid #f0b7d9;
+  color:#a24d7e;
+  background:#fff;
+}
+
+/* hover đẹp hơn */
+.btn-outline-pink:hover{
+  background:#fff0f7;
+}
+
+/* ===== MOBILE ===== */
+@media (max-width: 768px){
+  .ql-filter-row{
+    grid-template-columns:1fr;
+  }
+
+  .ql-filter-row:nth-child(2){
+    grid-template-columns:1fr;
+  }
+
+  .ql-actions{
+    justify-content:space-between;
+  }
+}

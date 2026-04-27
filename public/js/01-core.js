@@ -15,6 +15,15 @@ const state = {
     category: 'all',
     frequent: 'all',
   },
+  qlhoadonFilter: {
+  customer_id: 'all',
+  status: 'all',
+  from: '',
+  to: '',
+  amount_from: '',
+  amount_to: '',
+  search: '',
+},
   invoiceStatus: 'all',
   orderSort: 'newest',
   importRange: {
@@ -160,11 +169,11 @@ function isStaff() {
 }
 
 function managerPages() {
-  return ['dashboard', 'products', 'suppliers', 'customers', 'imports', 'sales', 'reports', 'history'];
+  return ['dashboard', 'products', 'suppliers', 'customers', 'imports', 'sales', 'qlhoadon', 'reports', 'history'];
 }
 
 function staffPages() {
-  return ['products', 'imports', 'sales', 'reports'];
+  return ['products', 'imports', 'sales', 'qlhoadon', 'reports'];
 }
 
 function firstAccessiblePage() {
@@ -208,6 +217,7 @@ function navItems() {
       ['customers', 'bi-people', 'Khách hàng'],
       ['imports', 'bi-arrow-down-circle', 'Nhập kho'],
       ['sales', 'bi-cart-check', 'Đơn hàng'],
+      ['qlhoadon', 'bi-receipt', 'Quản lý hóa đơn'],
       ['reports', 'bi-bar-chart', 'Báo cáo'],
       ['history', 'bi-clock-history', 'Lịch sử'],
     ];
@@ -216,6 +226,7 @@ function navItems() {
     ['products', 'bi-box-seam', 'Sản phẩm'],
     ['imports', 'bi-arrow-down-circle', 'Nhập kho'],
     ['sales', 'bi-cart-check', 'Đơn hàng'],
+    ['qlhoadon', 'bi-receipt', 'Quản lý hóa đơn'],
     ['reports', 'bi-bar-chart', 'Báo cáo'],
   ];
 }

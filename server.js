@@ -740,6 +740,14 @@ async function listOrders(filters = {}) {
   const params = [];
   const where = [];
 
+  if (filters.search) {
+    params.push(`%${text(filters.search)}%`);
+    where.push(`(o.order_code ILIKE $${params.length}
+      OR o.customer_name ILIKE $${params.length}
+      OR o.customer_phone ILIKE $${params.length}
+      OR o.customer_address ILIKE $${params.length})`);
+  }
+
   if (filters.customer_id && filters.customer_id !== 'all') {
     params.push(i(filters.customer_id));
     where.push(`o.customer_id = $${params.length}`);
@@ -757,6 +765,15 @@ async function listOrders(filters = {}) {
     where.push(`o.created_at < $${params.length}`);
   }
 
+  if (filters.amount_from) {
+    params.push(n(filters.amount_from));
+    where.push(`o.total_amount >= $${params.length}`);
+  }
+  if (filters.amount_to) {
+    params.push(n(filters.amount_to));
+    where.push(`o.total_amount <= $${params.length}`);
+  }
+
   const sql = `
     SELECT o.*, u.full_name AS created_by_name
     FROM orders o
@@ -764,6 +781,7 @@ async function listOrders(filters = {}) {
     ${where.length ? 'WHERE ' + where.join(' AND ') : ''}
     ORDER BY o.created_at DESC, o.id DESC
   `;
+
   const { rows } = await q(sql, params);
   const orders = rows.map(rowOrder);
   const items = await getOrderItems(orders.map(x => x.id));
@@ -1804,7 +1822,16 @@ app.delete('/api/imports/:id', requireAuth, async (req, res) => {
 /* ORDERS */
 app.get('/api/orders', requireAuth, async (req, res) => {
   try {
-    res.json({ success: true, data: await listOrders({ customer_id: req.query.customer_id, status: req.query.status, from: req.query.from, to: req.query.to }) });
+    const data = await listOrders({
+      search: req.query.search,
+      customer_id: req.query.customer_id,
+      status: req.query.status,
+      from: req.query.from,
+      to: req.query.to,
+      amount_from: req.query.amount_from,
+      amount_to: req.query.amount_to,
+    });
+    res.json({ success: true, data });
   } catch (error) {
     console.error(error);
     res.status(500).json({ success: false, message: 'Không thể tải hóa đơn.' });
