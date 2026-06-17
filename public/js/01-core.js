@@ -174,11 +174,11 @@ function isStaff() {
 }
 
 function managerPages() {
-  return ['dashboard', 'products', 'suppliers', 'customers', 'imports', 'sales', 'qlhoadon', 'congno', 'reports', 'history'];
+  return ['dashboard', 'products', 'suppliers', 'customers', 'imports', 'sales', 'qlhoadon', 'congno', /*'reports', */ 'history'];
 }
 
 function staffPages() {
-  return ['products', 'imports', 'sales', 'qlhoadon', 'reports'];
+  return ['products', 'imports', 'sales', 'qlhoadon', /*'reports', */ 'history'];
 }
 
 function firstAccessiblePage() {
