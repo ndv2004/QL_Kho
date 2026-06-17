@@ -5,6 +5,7 @@
    - Panel chi tiết ở giữa màn hình (modal): thông tin KH + toàn bộ hóa đơn
    - Lọc hóa đơn theo trạng thái, sắp xếp theo ngày
    - Thanh toán hóa đơn kèm xác nhận và refresh dữ liệu
+   - Xuất Excel thông qua 08-congno-excel.js
 */
 
 (function initCongNoModule() {
@@ -73,12 +74,6 @@
   function setUIFromFilters(filters) {
     if ($('congnoSearchName')) $('congnoSearchName').value = filters.name || '';
     if ($('congnoSearchPhone')) $('congnoSearchPhone').value = filters.phone || '';
-  }
-
-  function customerSearchQuery(filters) {
-    const name = String(filters.name || '').trim();
-    const phone = String(filters.phone || '').trim();
-    return [name, phone].filter(Boolean).join(' ').trim();
   }
 
   function safeNumber(value) {
@@ -236,8 +231,8 @@
     state.congno.loading = true;
     try {
       const filters = currentFilters();
-      const search = customerSearchQuery(filters);
       const qs = new URLSearchParams();
+      const search = [String(filters.name || '').trim(), String(filters.phone || '').trim()].filter(Boolean).join(' ').trim();
       if (search) qs.set('search', search);
 
       const res = await api(`/api/congno/customers${qs.toString() ? `?${qs.toString()}` : ''}`);
@@ -249,18 +244,14 @@
     }
   }
 
-  async function loadCustomerDetail(customerId) {
-    const [customerRes, ordersRes] = await Promise.all([
-      api(`/api/congno/customers/${customerId}`),
-      api(`/api/congno/customers/${customerId}/orders`),
-    ]);
+  async function loadCustomerOrders(customerId) {
+    const status = String(state.congno.detailFilters?.status || 'all');
+    const qs = new URLSearchParams();
+    if (status && status !== 'all') qs.set('status', status);
 
-    state.congno.selectedCustomer = customerRes.data || null;
-    state.congno.orders = Array.isArray(ordersRes.data) ? ordersRes.data : [];
-    return {
-      customer: state.congno.selectedCustomer,
-      orders: state.congno.orders,
-    };
+    const res = await api(`/api/congno/customers/${customerId}/orders${qs.toString() ? `?${qs.toString()}` : ''}`);
+    state.congno.orders = Array.isArray(res.data) ? res.data : [];
+    return state.congno.orders;
   }
 
   function renderInvoiceRows(list) {
@@ -278,9 +269,7 @@
           <td>${shortDate(o.created_at)}${o.created_at ? ` <span class="text-muted">${esc(fullDate(o.created_at).split(' ')[1] || '')}</span>` : ''}</td>
           <td>${money0(o.total_amount)}</td>
           <td><span class="badge ${badgeClass}">${esc(badgeLabel)}</span></td>
-          <td class="table-actions">
-            ${actionBtn}
-          </td>
+          <td class="table-actions">${actionBtn}</td>
         </tr>
       `;
     }).join('');
@@ -365,18 +354,18 @@
   }
 
   function renderCustomerDetailBody(customer, orders) {
-    const totalAmount = safeNumber(customer.total_amount);
-    const totalPaid = safeNumber(customer.total_paid);
-    const totalUnpaid = safeNumber(customer.total_unpaid);
+    const totalAmount = safeNumber(customer?.total_amount);
+    const totalPaid = safeNumber(customer?.total_paid);
+    const totalUnpaid = safeNumber(customer?.total_unpaid);
     const filteredOrders = filterOrders(orders, state.congno.detailFilters);
 
     return `
       <div class="panel mb-3">
         <div class="d-flex justify-content-between align-items-start flex-wrap gap-3">
           <div>
-            <h5 class="mb-1">${esc(customer.name || '')}</h5>
-            <div class="text-muted small">Số điện thoại: ${esc(customer.phone || '—')}</div>
-            <div class="text-muted small">Địa chỉ: ${esc(customer.address || '—')}</div>
+            <h5 class="mb-1">${esc(customer?.name || '')}</h5>
+            <div class="text-muted small">Số điện thoại: ${esc(customer?.phone || '—')}</div>
+            <div class="text-muted small">Địa chỉ: ${esc(customer?.address || '—')}</div>
           </div>
           <div class="text-end">
             <div class="small text-muted">Tổng mua</div>
@@ -409,27 +398,38 @@
 
   function openCongNoDetail(customerId) {
     const customer = (state.congno.customers || []).find((x) => String(x.id) === String(customerId));
-    state.congno.selectedCustomer = customer || state.congno.selectedCustomer || null;
+    if (!customer) {
+      toast('Không tìm thấy khách hàng.', 'error');
+      return;
+    }
+
+    state.congno.selectedCustomer = customer;
+    state.congno.orders = [];
 
     showDetailModal(
       'Chi tiết công nợ',
       `<div class="text-center text-muted py-4">Đang tải chi tiết...</div>`,
       `
-        <button type="button" class="btn btn-light" data-bs-dismiss="modal">Đóng</button>
+        <div class="d-flex gap-2 flex-wrap">
+          <button class="btn btn-success" data-congno-action="export-excel">Xuất Excel</button>
+          <button type="button" class="btn btn-outline-pink" data-congno-action="refresh-detail">Làm mới</button>
+          <button type="button" class="btn btn-light" data-bs-dismiss="modal">Đóng</button>
+        </div>
       `
     );
 
     const loadAndRender = async () => {
       try {
         state.congno.detailLoading = true;
-        const data = await loadCustomerDetail(customerId);
-        const bodyHtml = renderCustomerDetailBody(data.customer, data.orders);
+        await loadCustomerOrders(customerId);
+        const bodyHtml = renderCustomerDetailBody(state.congno.selectedCustomer, state.congno.orders);
 
         showDetailModal(
           'Chi tiết công nợ',
           bodyHtml,
           `
             <div class="d-flex gap-2 flex-wrap">
+              <button class="btn btn-success" data-congno-action="export-excel">Xuất Excel</button>
               <button type="button" class="btn btn-outline-pink" data-congno-action="refresh-detail">Làm mới</button>
               <button type="button" class="btn btn-light" data-bs-dismiss="modal">Đóng</button>
             </div>
@@ -454,7 +454,7 @@
     try {
       await loadCongNoCustomers();
       if (state.page === 'congno') {
-        renderCongNoPage();
+        await renderCongNoPage();
       }
     } catch (error) {
       toast(error.message || 'Không thể làm mới công nợ.', 'error');
@@ -627,6 +627,15 @@
       return;
     }
 
+    if (action === 'export-excel') {
+      if (typeof exportCongNoExcel === 'function') {
+        exportCongNoExcel(state.congno.selectedCustomer, state.congno.orders);
+      } else {
+        toast('Chức năng xuất Excel chưa được tải.', 'error');
+      }
+      return;
+    }
+
     if (action === 'pay-order') {
       if (!id) return;
       await payOrder(id);
@@ -687,6 +696,14 @@
         await refreshDetailModal();
         return;
       }
+      if (action === 'export-excel') {
+        if (typeof exportCongNoExcel === 'function') {
+          exportCongNoExcel(state.congno.selectedCustomer, state.congno.orders);
+        } else {
+          toast('Chức năng xuất Excel chưa được tải.', 'error');
+        }
+        return;
+      }
       if (action === 'close-detail') {
         const modal = $('detailModal');
         if (modal) bootstrap.Modal.getOrCreateInstance(modal).hide();
@@ -695,7 +712,6 @@
 
     document.addEventListener('hidden.bs.modal', async (e) => {
       if (e.target && e.target.id === 'detailModal' && state.page === 'congno') {
-        // giữ trạng thái selectedCustomer để người dùng có thể mở lại nhanh
         state.congno.detailLoading = false;
       }
     });
