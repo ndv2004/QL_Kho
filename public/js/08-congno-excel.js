@@ -221,7 +221,7 @@
     // 5 cột bằng nhau, không dùng cột F
     sheet.columns = [
       { width: 20 },
-      { width: 20 },
+      { width: 22 },
       { width: 20 },
       { width: 20 },
       { width: 20 },
