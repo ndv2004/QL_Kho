@@ -224,7 +224,7 @@ function navItems() {
       ['sales', 'bi-cart-check', 'Đơn hàng'],
       ['qlhoadon', 'bi-receipt', 'Quản lý hóa đơn'],
       ['congno', 'bi-cash-stack', 'Công nợ (New)'],
-      ['reports', 'bi-bar-chart', 'Báo cáo'],
+      //['reports', 'bi-bar-chart', 'Báo cáo'],
       ['history', 'bi-clock-history', 'Lịch sử'],
     ];
   }
@@ -233,7 +233,7 @@ function navItems() {
     ['imports', 'bi-arrow-down-circle', 'Nhập kho'],
     ['sales', 'bi-cart-check', 'Đơn hàng'],
     ['qlhoadon', 'bi-receipt', 'Quản lý hóa đơn'],
-    ['reports', 'bi-bar-chart', 'Báo cáo'],
+    //['reports', 'bi-bar-chart', 'Báo cáo'],
   ];
 }
 

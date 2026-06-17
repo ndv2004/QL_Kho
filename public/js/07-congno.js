@@ -220,7 +220,7 @@
     return `
       <div class="summary-grid mb-4">
         ${cardHtml('Khách hàng', stats.totalCustomers, 'Kết quả đang hiển thị')}
-        ${cardHtml('Tổng công nợ', money0(stats.totalUnpaid), 'Tổng chưa thu')}
+        ${cardHtml('Tổng nợ', money0(stats.totalUnpaid), 'Tổng chưa thu')}
         ${cardHtml('Đã thu', money0(stats.totalPaid), 'Tổng đã thanh toán')}
         ${cardHtml('Đang nợ', stats.debtCustomers, 'Khách hàng còn dư nợ')}
       </div>
