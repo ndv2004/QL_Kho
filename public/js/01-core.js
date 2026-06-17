@@ -7,6 +7,11 @@ const state = {
   customers: [],
   imports: [],
   orders: [],
+  congno: {
+    customers: [],
+    selectedCustomer: null,
+    orders: [],
+  },
   dashboard: null,
   reports: null,
   logs: [],
@@ -169,7 +174,7 @@ function isStaff() {
 }
 
 function managerPages() {
-  return ['dashboard', 'products', 'suppliers', 'customers', 'imports', 'sales', 'qlhoadon', 'reports', 'history'];
+  return ['dashboard', 'products', 'suppliers', 'customers', 'imports', 'sales', 'qlhoadon', 'congno', 'reports', 'history'];
 }
 
 function staffPages() {
@@ -218,6 +223,7 @@ function navItems() {
       ['imports', 'bi-arrow-down-circle', 'Nhập kho'],
       ['sales', 'bi-cart-check', 'Đơn hàng'],
       ['qlhoadon', 'bi-receipt', 'Quản lý hóa đơn'],
+      ['congno', 'bi-cash-stack', 'Công nợ (New)'],
       ['reports', 'bi-bar-chart', 'Báo cáo'],
       ['history', 'bi-clock-history', 'Lịch sử'],
     ];

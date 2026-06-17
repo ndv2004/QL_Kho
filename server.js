@@ -2033,6 +2033,237 @@ app.get('/api/reports/summary', requireAuth, async (req, res) => {
   }
 });
 
+//Công nợ thêm ngày 17/06/2026
+app.get('/api/congno/customers', requireManager, async (req, res) => {
+try {
+const search = String(req.query.search || '').trim();
+const params = [];
+let where = '';
+
+if (search) {
+  params.push(`%${search}%`);
+  where = `
+    WHERE
+      c.name ILIKE $1
+      OR c.phone ILIKE $1
+  `;
+}
+
+const sql = `
+  SELECT
+    c.id,
+    c.name,
+    c.phone,
+    c.address,
+
+    COALESCE(SUM(o.total_amount),0) AS total_amount,
+
+    COALESCE(
+      SUM(
+        CASE
+          WHEN o.is_paid = TRUE
+          THEN o.total_amount
+          ELSE 0
+        END
+      ),
+      0
+    ) AS total_paid,
+
+    COALESCE(
+      SUM(
+        CASE
+          WHEN o.is_paid = FALSE
+          THEN o.total_amount
+          ELSE 0
+        END
+      ),
+      0
+    ) AS total_unpaid
+
+  FROM customers c
+  LEFT JOIN orders o
+  ON o.customer_id = c.id
+
+  ${where}
+
+  GROUP BY
+    c.id,
+    c.name,
+    c.phone,
+    c.address
+
+  ORDER BY
+    total_unpaid DESC,
+    c.name ASC
+`;
+
+const { rows } = await q(sql, params);
+
+res.json({
+  success: true,
+  data: rows,
+});
+} catch (err) {
+console.error(err);
+res.status(500).json({
+  success: false,
+  message: 'Không thể tải danh sách công nợ.'
+});
+}
+});
+
+
+
+app.get('/api/congno/customers/:id', requireManager, async (req, res) => {
+try {
+const id = i(req.params.id);
+const { rows } = await q(
+  `
+  SELECT *
+  FROM customers
+  WHERE id = $1
+  `,
+  [id]
+);
+
+if (!rows.length) {
+  return res.status(404).json({
+    success: false,
+    message: 'Không tìm thấy khách hàng.'
+  });
+}
+
+res.json({
+  success: true,
+  data: rowCustomer(rows[0])
+});
+} catch (err) {
+console.error(err);
+res.status(500).json({
+  success: false,
+  message: 'Không thể tải khách hàng.'
+});
+}
+});
+
+app.get('/api/congno/customers/:id/orders', requireManager, async (req, res) => {
+try {
+const customerId = i(req.params.id);
+const status = String(req.query.status || 'all');
+
+let where = `
+  WHERE o.customer_id = $1
+`;
+
+const params = [customerId];
+
+if (status === 'paid') {
+  where += `
+    AND o.is_paid = TRUE
+  `;
+}
+
+if (status === 'unpaid') {
+  where += `
+    AND o.is_paid = FALSE
+  `;
+}
+
+const sql = `
+  SELECT
+    o.id,
+    o.order_code,
+    o.customer_name,
+    o.customer_phone,
+    o.total_amount,
+    o.is_paid,
+    o.created_at,
+    u.full_name AS created_by_name
+
+  FROM orders o
+  LEFT JOIN users u
+  ON u.id = o.created_by
+
+  ${where}
+
+  ORDER BY o.created_at DESC
+`;
+
+const { rows } = await q(sql, params);
+
+res.json({
+  success: true,
+  data: rows
+});
+} catch (err) {
+console.error(err);
+res.status(500).json({
+  success: false,
+  message: 'Không thể tải danh sách hóa đơn.'
+});
+}
+});
+
+
+app.post('/api/congno/orders/:id/pay', requireManager, async (req, res) => {
+try {
+const orderId = i(req.params.id);
+
+await withTx(async (client) => {
+
+  const oldOrder = await client.query(
+    `
+    SELECT *
+    FROM orders
+    WHERE id = $1
+    `,
+    [orderId]
+  );
+
+  if (!oldOrder.rows.length) {
+    throw new Error('Không tìm thấy hóa đơn.');
+  }
+
+  await client.query(
+    `
+    UPDATE orders
+    SET
+      is_paid = TRUE,
+      updated_at = NOW()
+    WHERE id = $1
+    `,
+    [orderId]
+  );
+
+  await logAction(client, {
+    action: 'PAY_ORDER',
+    entity_type: 'order',
+    entity_id: orderId,
+    old_data: oldOrder.rows[0],
+    new_data: {
+      is_paid: true
+    },
+    actor_id: req.session.user.id
+  });
+
+});
+
+res.json({
+  success: true,
+  message: 'Đã cập nhật thanh toán.'
+});
+} catch (err) {
+console.error(err);
+
+res.status(500).json({
+  success: false,
+  message: err.message
+});
+}
+});
+
+
+
 /* START */
 async function start() {
   try {

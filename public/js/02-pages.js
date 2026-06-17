@@ -783,8 +783,9 @@ async function routeRender(page) {
     page === 'imports' ? 'Nhập kho' :
     page === 'sales' ? 'Đơn hàng' :
     page === 'invoices' ? 'Đơn hàng' :
-    page === 'reports' ? 'Báo cáo' :
     page === 'qlhoadon' ? 'Quản lý hóa đơn' :
+    page === 'congno' ? 'Công nợ khách hàng':
+    page === 'reports' ? 'Báo cáo' :
     page === 'history' ? 'Lịch sử chỉnh sửa' :
     'Sản phẩm',
     page === 'dashboard' ? 'Tổng quan hoạt động kho và bán hàng' :
@@ -794,8 +795,9 @@ async function routeRender(page) {
     page === 'imports' ? 'Tạo và chỉnh sửa phiếu nhập kho' :
     page === 'sales' ? 'Tạo, sửa, theo dõi và thanh toán đơn hàng' :
     page === 'invoices' ? 'Tạo, sửa, theo dõi và thanh toán đơn hàng' :
-    page === 'reports' ? 'Báo cáo tháng, tổng quan và PDF' :
     page === 'qlhoadon' ? 'Xem, lọc, chỉnh sửa tất cả hóa đơn' :
+    page === 'congno' ? 'Theo dõi công nợ, thanh toán và lịch sử hóa đơn của khách hàng':
+    page === 'reports' ? 'Báo cáo tháng, tổng quan và PDF' :
     page === 'history' ? 'Lịch sử chỉnh sửa và thao tác' :
     'Quản lý kho'
   );
@@ -841,11 +843,11 @@ async function routeRender(page) {
     return;
   }
   if (page === 'qlhoadon') {
-  renderLoading();
-  if (!state.orders.length) await loadOrders();
-  renderQLHoaDonPage();
-  return;
-}
+    renderLoading();
+    if (!state.orders.length) await loadOrders();
+    renderQLHoaDonPage();
+    return;
+  }
   if (page === 'invoices') {
     state.page = 'sales';
     renderLoading();
@@ -853,6 +855,17 @@ async function routeRender(page) {
     renderSalesPage();
     return;
   }
+  if (page === 'congno') {
+  renderLoading();
+
+  if (typeof loadCongNoCustomers === 'function') {
+  await loadCongNoCustomers();
+  }
+
+  renderCongNoPage();
+  return;
+  }
+
   if (page === 'reports') {
     renderLoading();
     if (!state.reports) await loadReports();
