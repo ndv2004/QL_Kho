@@ -2263,6 +2263,229 @@ res.status(500).json({
 });
 
 
+//Đây là file dùng để backup dữ liệu, sau này nếu không còn muốn sử dụng web nữa, có thể lưu toàn bộ dữ liệu lại rồi vứt là dự án mới. Cảm ơn
+//Hà Nội, ngày 24 tháng 6 năm 2024
+
+const archiverPkg = require('archiver');
+const ZipArchive =
+  archiverPkg?.ZipArchive ||
+  archiverPkg?.default ||
+  archiverPkg?.Archiver ||
+  archiverPkg;
+
+function escapeCsv(value) {
+  if (value === null || value === undefined) return '';
+
+  const str = String(value);
+
+  if (str.includes(',') || str.includes('"') || str.includes('\n')) {
+    return `"${str.replace(/"/g, '""')}"`;
+  }
+
+  return str;
+}
+
+function rowsToCsv(rows = [], headers = []) {
+  const columns = Array.isArray(headers) && headers.length
+    ? headers
+    : Object.keys(rows[0] || {});
+
+  if (!columns.length) return '';
+
+  const lines = [columns.join(',')];
+
+  for (const row of rows) {
+    lines.push(columns.map((h) => escapeCsv(row[h])).join(','));
+  }
+
+  return lines.join('\n');
+}
+
+function quoteIdent(name) {
+  return `"${String(name).replace(/"/g, '""')}"`;
+}
+
+function sqlColumnType(col) {
+  const dataType = String(col?.data_type || 'text').toLowerCase();
+  const len = col?.character_maximum_length;
+
+  switch (dataType) {
+    case 'character varying':
+      return len ? `VARCHAR(${len})` : 'TEXT';
+    case 'character':
+      return len ? `CHAR(${len})` : 'CHAR(1)';
+    case 'text':
+      return 'TEXT';
+    case 'integer':
+      return 'INTEGER';
+    case 'smallint':
+      return 'SMALLINT';
+    case 'bigint':
+      return 'BIGINT';
+    case 'numeric':
+      return 'NUMERIC';
+    case 'real':
+      return 'REAL';
+    case 'double precision':
+      return 'DOUBLE PRECISION';
+    case 'boolean':
+      return 'BOOLEAN';
+    case 'date':
+      return 'DATE';
+    case 'timestamp without time zone':
+      return 'TIMESTAMP';
+    case 'timestamp with time zone':
+      return 'TIMESTAMPTZ';
+    case 'time without time zone':
+      return 'TIME';
+    case 'time with time zone':
+      return 'TIMETZ';
+    case 'uuid':
+      return 'UUID';
+    case 'json':
+      return 'JSON';
+    case 'jsonb':
+      return 'JSONB';
+    case 'bytea':
+      return 'BYTEA';
+    default:
+      return col?.data_type ? String(col.data_type).toUpperCase() : 'TEXT';
+  }
+}
+
+app.get('/api/database/export', async (req, res) => {
+  try {
+    const now = new Date();
+
+    const fileName =
+      `database_backup_${now.getFullYear()}${String(now.getMonth() + 1).padStart(2, '0')}${String(now.getDate()).padStart(2, '0')}.zip`;
+
+    const archive =
+      typeof ZipArchive === 'function'
+        ? new ZipArchive({ zlib: { level: 9 } })
+        : archiverPkg('zip', { zlib: { level: 9 } });
+
+    if (!archive || typeof archive.pipe !== 'function') {
+      throw new Error('Không thể khởi tạo ZIP archive.');
+    }
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename="${fileName}"`);
+
+    archive.on('warning', (err) => {
+      console.warn('ARCHIVE WARNING:', err);
+    });
+
+    archive.on('error', (err) => {
+      console.error('ARCHIVE ERROR:', err);
+      if (!res.headersSent) {
+        res.status(500).json({
+          success: false,
+          message: 'Không thể tạo file ZIP',
+        });
+      } else {
+        res.destroy(err);
+      }
+    });
+
+    archive.pipe(res);
+
+    const tableResult = await q(`
+      SELECT table_name
+      FROM information_schema.tables
+      WHERE table_schema = 'public'
+        AND table_type = 'BASE TABLE'
+      ORDER BY table_name
+    `);
+
+    const tables = tableResult.rows.map((r) => r.table_name);
+
+    archive.append(
+      JSON.stringify(
+        {
+          exportDate: now.toISOString(),
+          database: 'Inventory Sales',
+          tableCount: tables.length,
+          tables,
+        },
+        null,
+        2
+      ),
+      { name: 'metadata.json' }
+    );
+
+    let schemaSql = `-- Database backup generated at ${now.toISOString()}\n`;
+
+    for (const table of tables) {
+      const columnsResult = await q(
+        `
+          SELECT
+            column_name,
+            data_type,
+            character_maximum_length,
+            is_nullable,
+            column_default
+          FROM information_schema.columns
+          WHERE table_schema = 'public'
+            AND table_name = $1
+          ORDER BY ordinal_position
+        `,
+        [table]
+      );
+
+      const columns = columnsResult.rows;
+
+      schemaSql += `\n-- TABLE: ${table}\n`;
+      schemaSql += `CREATE TABLE ${quoteIdent(table)} (\n`;
+
+      schemaSql += columns
+        .map((col) => {
+          let line = `  ${quoteIdent(col.column_name)} ${sqlColumnType(col)}`;
+
+          if (String(col.is_nullable).toUpperCase() === 'NO') {
+            line += ' NOT NULL';
+          }
+
+          if (col.column_default !== null && col.column_default !== undefined) {
+            line += ` DEFAULT ${col.column_default}`;
+          }
+
+          return line;
+        })
+        .join(',\n');
+
+      schemaSql += '\n);\n';
+
+      const dataResult = await q(`SELECT * FROM ${quoteIdent(table)}`);
+      const csv =
+  '\uFEFF' +
+  rowsToCsv(
+    dataResult.rows,
+    columns.map(c => c.column_name)
+  );
+
+      archive.append(csv || `${columns.map((c) => escapeCsv(c.column_name)).join(',')}\n`, {
+        name: `${table}.csv`,
+      });
+    }
+
+    archive.append(schemaSql, { name: 'schema.sql' });
+
+    await archive.finalize();
+  } catch (error) {
+    console.error('DATABASE EXPORT ERROR:', error);
+
+    if (!res.headersSent) {
+      res.status(500).json({
+        success: false,
+        message: 'Không thể xuất dữ liệu',
+      });
+    }
+  }
+});
+
+// Cảm ơn và xin phép chào.
+
 
 /* START */
 async function start() {

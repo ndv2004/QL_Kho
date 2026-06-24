@@ -1143,3 +1143,48 @@ body.global-picker-open {
     justify-content:space-between;
   }
 }
+
+.btn-export-sql {
+  min-width: 280px;
+  height: 44px;
+
+  border: none;
+  border-radius: 12px;
+
+  background: linear-gradient(
+    135deg,
+    #ff6fa5,
+    #e91e63
+  );
+
+  color: white;
+
+  font-weight: 700;
+  font-size: 14px;
+
+  box-shadow:
+    0 8px 20px rgba(233, 30, 99, 0.25);
+
+  transition: all 0.25s ease;
+}
+
+.btn-export-sql:hover {
+  transform: translateY(-2px);
+
+  box-shadow:
+    0 12px 24px rgba(233, 30, 99, 0.35);
+
+  background: linear-gradient(
+    135deg,
+    #ff80b3,
+    #ec407a
+  );
+}
+
+.btn-export-sql:active {
+  transform: scale(0.98);
+}
+
+.btn-export-sql i {
+  font-size: 15px;
+}

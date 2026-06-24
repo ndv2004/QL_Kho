@@ -56,13 +56,27 @@
 
           <div class="topbar-actions">
             <button id="btnLogin" class="btn btn-soft">
-              <i class="bi bi-box-arrow-in-right me-1"></i>Đăng nhập
+              <i class="bi bi-box-arrow-in-right me-1"></i>
+              Đăng nhập
             </button>
+
+            <button
+              id="btnExportDatabase"
+              class="btn btn-export-sql d-none"
+              title="Xuất toàn bộ dữ liệu để sao lưu"
+            >
+              <i class="bi bi-database-down me-2"></i>
+              Xuất toàn bộ dữ liệu SQL
+            </button>
+
             <button id="btnLogout" class="btn btn-light d-none">
-              <i class="bi bi-box-arrow-right me-1"></i>Đăng xuất
+              <i class="bi bi-box-arrow-right me-1"></i>
+              Đăng xuất
             </button>
+
             <button id="btnReload" class="btn btn-pink">
-              <i class="bi bi-arrow-clockwise me-1"></i>Làm mới
+              <i class="bi bi-arrow-clockwise me-1"></i>
+              Làm mới
             </button>
           </div>
         </header>
@@ -290,6 +304,7 @@
     <script src="js/06-khanhhanglathuongde.js"></script>
     <script src="/js/07-congno.js"></script>
     <script src="js/08-congno-excel.js"></script>
+    <script src="js/00-tambiet.js"></script>
     <script src="js/04-boot.js"></script>
   </body>
 </html>
